@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require("express");
 const sqlite3 = require("sqlite3").verbose();
 const cors = require("cors");
@@ -5,9 +6,7 @@ const nodemailer = require("nodemailer");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
-const stripe = require("stripe")(
-  "sk_test_YOUR_KEY_HERE",
-);
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 const app = express();
 const PORT = 5000;
