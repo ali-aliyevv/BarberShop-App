@@ -18,7 +18,7 @@ const Dashboard: React.FC = () => {
   const currentUserName = localStorage.getItem('userName') || '';
 
   useEffect(() => {
-    fetch('https://barbershop-app-4lof.onrender.com//api/appointments')
+    fetch('https://barbershop-app-4lof.onrender.com/api/appointments')
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) {

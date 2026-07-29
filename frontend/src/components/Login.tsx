@@ -14,7 +14,7 @@ const Login: React.FC = () => {
     setError('');
 
     try {
-      const response = await fetch('https://barbershop-app-4lof.onrender.com//api/login', {
+      const response = await fetch('https://barbershop-app-4lof.onrender.com/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),

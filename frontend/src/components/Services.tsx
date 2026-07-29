@@ -153,7 +153,7 @@ const CheckoutForm: React.FC<{
         : 15;
 
       const res = await fetch(
-        "https://barbershop-app-4lof.onrender.com//api/create-payment-intent",
+        "https://barbershop-app-4lof.onrender.com/api/create-payment-intent",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -175,7 +175,7 @@ const CheckoutForm: React.FC<{
       }
 
       if (paymentResult.paymentIntent?.status === "succeeded") {
-        const apptRes = await fetch("https://barbershop-app-4lof.onrender.com//api/appointments", {
+        const apptRes = await fetch("https://barbershop-app-4lof.onrender.com/api/appointments", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -263,13 +263,13 @@ const Services: React.FC = () => {
   const currentTimeStr = `${currentHours}:${currentMinutes}`;
 
   useEffect(() => {
-    fetch("https://barbershop-app-4lof.onrender.com//api/services")
+    fetch("https://barbershop-app-4lof.onrender.com/api/services")
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) setServices(data);
       });
 
-    fetch("https://barbershop-app-4lof.onrender.com//api/barbers")
+    fetch("https://barbershop-app-4lof.onrender.com/api/barbers")
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) {

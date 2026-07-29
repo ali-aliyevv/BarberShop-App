@@ -334,7 +334,7 @@ app.get("/api/barbers", (req, res) => {
 app.post("/api/barbers", upload.single("image"), (req, res) => {
   const { name, role, experience, rating, specialty } = req.body;
   const image = req.file
-    ? `https://barbershop-app-4lof.onrender.com//uploads/${req.file.filename}`
+    ? `https://barbershop-app-4lof.onrender.com/uploads/${req.file.filename}`
     : "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=500";
 
   db.run(
