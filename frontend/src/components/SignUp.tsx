@@ -38,7 +38,7 @@ const Signup: React.FC = () => {
     }
 
     try {
-      const response = await fetch('http://localhost:5000/api/send-otp', {
+      const response = await fetch('https://barbershop-app-4lof.onrender.com//api/send-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, phone, email, password }),
@@ -60,7 +60,7 @@ const Signup: React.FC = () => {
     setError('');
 
     try {
-      const response = await fetch('http://localhost:5000/api/signup', {
+      const response = await fetch('https://barbershop-app-4lof.onrender.com//api/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, phone, email, password, otp }),

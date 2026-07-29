@@ -80,21 +80,21 @@ const Admin: React.FC = () => {
 
   // 🚀 useCallback ilə optimizasiya olundu ki, gərəksiz yerə hər renderdə yenidən yaranmasın
   const loadData = useCallback(() => {
-    fetch("http://localhost:5000/api/appointments")
+    fetch("https://barbershop-app-4lof.onrender.com//api/appointments")
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) setAppointments(data);
       })
       .catch((err) => console.error(err));
 
-    fetch("http://localhost:5000/api/services")
+    fetch("https://barbershop-app-4lof.onrender.com//api/services")
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) setServices(data);
       })
       .catch((err) => console.error(err));
 
-    fetch("http://localhost:5000/api/barbers")
+    fetch("https://barbershop-app-4lof.onrender.com//api/barbers")
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) {
@@ -111,7 +111,7 @@ const Admin: React.FC = () => {
 
   const handleAddService = async (e: React.FormEvent) => {
     e.preventDefault();
-    await fetch("http://localhost:5000/api/services", {
+    await fetch("https://barbershop-app-4lof.onrender.com//api/services", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -142,7 +142,7 @@ const Admin: React.FC = () => {
       formData.append("image", barberImageFile);
     }
 
-    const res = await fetch("http://localhost:5000/api/barbers", {
+    const res = await fetch("https://barbershop-app-4lof.onrender.com//api/barbers", {
       method: "POST",
       body: formData,
     });
@@ -168,8 +168,8 @@ const Admin: React.FC = () => {
 
     const url =
       deleteTarget.type === "service"
-        ? `http://localhost:5000/api/services/${deleteTarget.id}`
-        : `http://localhost:5000/api/barbers/${deleteTarget.id}`;
+        ? `https://barbershop-app-4lof.onrender.com//api/services/${deleteTarget.id}`
+        : `https://barbershop-app-4lof.onrender.com//api/barbers/${deleteTarget.id}`;
 
     const res = await fetch(url, { method: "DELETE" });
     if (res.ok) {
@@ -511,7 +511,7 @@ const Admin: React.FC = () => {
                 e.preventDefault();
                 setOffMessage("");
                 const res = await fetch(
-                  "http://localhost:5000/api/barber-off-days",
+                  "https://barbershop-app-4lof.onrender.com//api/barber-off-days",
                   {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },

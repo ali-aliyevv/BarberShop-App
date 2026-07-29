@@ -18,7 +18,7 @@ const Barbers: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("http://localhost:5000/api/barbers")
+    fetch("https://barbershop-app-4lof.onrender.com//api/barbers")
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) setBarbers(data);
