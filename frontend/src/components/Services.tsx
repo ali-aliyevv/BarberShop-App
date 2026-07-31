@@ -1,13 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
-import {
-  Scissors,
-  ArrowRight,
-  Clock,
-  X,
-  CreditCard,
-  CheckCircle2,
-} from "lucide-react";
+import { Scissors, ArrowRight, Clock, X, CheckCircle2 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { loadStripe } from "@stripe/stripe-js";
 import {
@@ -56,7 +49,7 @@ const TiltCard = ({
   const rotateX = useTransform(mouseYSpring, [-0.5, 0.5], ["10deg", "-10deg"]);
   const rotateY = useTransform(mouseXSpring, [-0.5, 0.5], ["-10deg", "10deg"]);
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+  const handleMouseMove = (e: React.MouseEvent) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const width = rect.width;
     const height = rect.height;
@@ -80,45 +73,44 @@ const TiltCard = ({
       style={{ rotateX, rotateY, transformStyle: "preserve-3d" }}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
-      className="relative bg-white/80 backdrop-blur-sm p-8 rounded-3xl shadow-xl border border-white/40 flex flex-col items-center text-center cursor-pointer group hover:shadow-2xl hover:border-amber-200 transition-all duration-300"
+      className="relative bg-white/80 backdrop-blur-sm p-8 rounded-3xl shadow-xl border border-white/40 flex flex-col items-center text-center group hover:shadow-2xl hover:border-amber-200 transition-all duration-300"
     >
       <div
         style={{ transform: "translateZ(50px)" }}
         className="flex flex-col items-center w-full grow"
       >
-        <div className="p-4 bg-linear-to-br from-amber-100 to-amber-200 text-amber-700 rounded-2xl mb-6 shadow-md group-hover:scale-110 transition-transform duration-300">
-          <Scissors size={28} />
+        <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center mb-6 shadow-inner group-hover:bg-amber-600 group-hover:text-white transition-colors">
+          <Scissors className="w-8 h-8" />
         </div>
-        <h3 className="text-2xl font-bold mb-2 text-gray-800">
+        <span className="text-xs font-bold uppercase tracking-wider text-amber-600 bg-amber-50 px-3 py-1 rounded-full mb-3">
+          {service.category}
+        </span>
+        <h3 className="text-2xl font-bold text-gray-900 mb-2">
           {service.name}
         </h3>
-        <p className="text-gray-500 text-sm mb-4 h-10">{service.description}</p>
+        <p className="text-gray-600 text-sm mb-6 grow">{service.description}</p>
 
-        <div className="flex items-center gap-2 mb-6 bg-gray-50 px-4 py-2 rounded-full border border-gray-100">
-          <Clock size={16} className="text-amber-500" />
-          <span className="text-gray-600 font-medium text-sm">
-            {service.duration}
+        <div className="flex items-center justify-between w-full border-t border-gray-100 pt-4 mb-6">
+          <div className="flex items-center gap-1.5 text-gray-500 text-sm font-medium">
+            <Clock className="w-4 h-4 text-amber-500" />
+            <span>{service.duration}</span>
+          </div>
+          <span className="text-xl font-black text-gray-900">
+            {service.price}
           </span>
         </div>
 
-        <p className="text-4xl font-extrabold text-gray-900 mb-8 mt-auto">
-          {service.price}
-        </p>
-
         {userRole === "barber" || userRole === "admin" ? (
-          <div className="w-full py-3 px-6 bg-gray-100 text-gray-400 font-bold rounded-xl text-center text-sm">
-            Bərbər hesabı ilə rezervasiya edilmir
-          </div>
+          <span className="w-full bg-gray-100 text-gray-400 font-semibold py-3 px-6 rounded-xl text-sm">
+            Bərbər hesabı ilə rezervasiya edilə bilməz
+          </span>
         ) : (
           <button
             onClick={() => onOpenModal(service)}
-            className="w-full flex items-center justify-center gap-2 bg-gray-900 text-white font-bold py-3 px-6 rounded-xl hover:bg-amber-500 transition-colors duration-300 group/btn"
+            className="w-full bg-gray-900 text-white font-bold py-3.5 px-6 rounded-xl hover:bg-amber-500 transition-colors shadow-lg flex items-center justify-center gap-2 group/btn"
           >
-            Rezervasiya Et
-            <ArrowRight
-              size={18}
-              className="group-hover/btn:translate-x-1 transition-transform"
-            />
+            <span>Rezervasiya Et</span>
+            <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
           </button>
         )}
       </div>
@@ -126,7 +118,8 @@ const TiltCard = ({
   );
 };
 
-const CheckoutForm: React.FC<{
+// 💳 Stripe Kart Ödəniş Forması (Həmişə <Elements> daxilində işləyəcək)
+const CardCheckoutForm: React.FC<{
   selectedService: ServiceType | null;
   barberName: string;
   date: string;
@@ -146,14 +139,13 @@ const CheckoutForm: React.FC<{
     if (!stripe || !elements) return;
 
     setLoading(true);
-
     try {
       const priceNumeric = selectedService
         ? parseFloat(selectedService.price.replace(/[^\d.]/g, ""))
         : 15;
 
       const res = await fetch(
-        "https://barbershop-app-4lof.onrender.com/api/create-payment-intent",
+        "http://localhost:5000/api/create-payment-intent",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -175,7 +167,7 @@ const CheckoutForm: React.FC<{
       }
 
       if (paymentResult.paymentIntent?.status === "succeeded") {
-        const apptRes = await fetch("https://barbershop-app-4lof.onrender.com/api/appointments", {
+        const apptRes = await fetch("http://localhost:5000/api/appointments", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -185,6 +177,7 @@ const CheckoutForm: React.FC<{
             date,
             time,
             service: selectedService?.name,
+            paymentMethod: "Kart",
           }),
         });
 
@@ -207,7 +200,7 @@ const CheckoutForm: React.FC<{
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="p-4 bg-gray-50 border border-gray-200 rounded-2xl">
+      <div className="p-4 bg-gray-50 rounded-2xl border border-gray-200">
         <CardElement
           options={{
             style: {
@@ -221,6 +214,7 @@ const CheckoutForm: React.FC<{
           }}
         />
       </div>
+
       <button
         type="submit"
         disabled={!stripe || loading}
@@ -248,28 +242,25 @@ const Services: React.FC = () => {
   const [barberName, setBarberName] = useState(preSelectedBarber || "");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<"card" | "cash">("card");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
-  const navigate = useNavigate();
 
+  const navigate = useNavigate();
   const isLoggedIn = localStorage.getItem("isLoggedIn") === "true";
   const userRole = localStorage.getItem("userRole");
-
-  const todayStr = new Date().toISOString().split("T")[0];
-  const now = new Date();
-  const currentHours = String(now.getHours()).padStart(2, "0");
-  const currentMinutes = String(now.getMinutes()).padStart(2, "0");
-  const currentTimeStr = `${currentHours}:${currentMinutes}`;
+  const customerName = localStorage.getItem("userName") || "Müştəri";
+  const customerPhone = localStorage.getItem("userPhone") || "";
 
   useEffect(() => {
-    fetch("https://barbershop-app-4lof.onrender.com/api/services")
+    fetch("http://localhost:5000/api/services")
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) setServices(data);
       });
 
-    fetch("https://barbershop-app-4lof.onrender.com/api/barbers")
+    fetch("http://localhost:5000/api/barbers")
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) {
@@ -310,44 +301,76 @@ const Services: React.FC = () => {
     setIsPaymentOpen(true);
   };
 
+  // Nağd ödənişin birbaşa bazaya yazılması
+  const handleCashBooking = async () => {
+    try {
+      const res = await fetch("http://localhost:5000/api/appointments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          barberName,
+          customer: customerName,
+          phone: customerPhone,
+          date,
+          time,
+          service: selectedService?.name,
+          paymentMethod: "Nağd",
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Rezervasiya xətası");
+
+      setIsPaymentOpen(false);
+      setMessage("Rezervasiya uğurla tamamlandı! (Salonda ödəniş)");
+      setTimeout(() => navigate("/dashboard"), 1500);
+   } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("Naməlum xəta baş verdi");
+      }
+   }
+  }
+  const todayStr = new Date().toISOString().split("T")[0];
+  const now = new Date();
+  const currentTimeStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+
   return (
-    <div className="relative py-24 px-8 min-h-screen bg-gray-50 overflow-hidden">
-      <div className="relative max-w-7xl mx-auto">
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="text-center mb-20"
-        >
-          <h2 className="text-5xl font-extrabold text-gray-900 tracking-tight">
-            Bizim Xidmətlər
-          </h2>
-          <p className="text-gray-500 mt-4 text-lg max-w-2xl mx-auto">
-            Sizə ən uyğun olan xidməti seçin və peşəkar ustalarımızın təqdim
-            etdiyi premium təcrübədən zövq alın.
-          </p>
-          <div className="w-24 h-1.5 bg-linear-to-r from-amber-400 to-orange-500 mx-auto mt-6 rounded-full"></div>
-        </motion.div>
+    <div className="max-w-7xl mx-auto px-4 py-16">
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        className="text-center mb-20"
+      >
+        <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-4 tracking-tight">
+          Bizim Xidmətlər
+        </h2>
+        <p className="text-gray-600 text-lg max-w-2xl mx-auto">
+          Sizə ən uyğun olan xidməti seçin və peşəkar ustalarımızın təqdim
+          etdiyi premium təcrübədən zövq alın.
+        </p>
+      </motion.div>
 
-        <motion.div
-          variants={containerVariants}
-          initial="hidden"
-          whileInView="show"
-          viewport={{ once: true, margin: "-50px" }}
-          className="grid gap-10 md:grid-cols-2 lg:grid-cols-3"
-        >
-          {services.map((service) => (
-            <TiltCard
-              key={service.id}
-              service={service}
-              onOpenModal={handleOpenModal}
-            />
-          ))}
-        </motion.div>
-      </div>
+      <motion.div
+        variants={containerVariants}
+        initial="hidden"
+        whileInView="show"
+        viewport={{ once: true, margin: "-50px" }}
+        className="grid gap-10 md:grid-cols-2 lg:grid-cols-3"
+      >
+        {services.map((service) => (
+          <TiltCard
+            key={service.id}
+            service={service}
+            onOpenModal={handleOpenModal}
+          />
+        ))}
+      </motion.div>
 
-      {selectedService && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      {/* 📅 Rezervasiya Məlumat Modalı */}
+      {selectedService && !isPaymentOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -357,14 +380,13 @@ const Services: React.FC = () => {
               onClick={() => setSelectedService(null)}
               className="absolute top-6 right-6 text-gray-400 hover:text-gray-600"
             >
-              <X size={24} />
+              <X className="w-6 h-6" />
             </button>
-
             <h3 className="text-2xl font-bold text-gray-900 mb-2">
               Rezervasiya Et
             </h3>
             <p className="text-amber-600 font-semibold mb-6">
-              {selectedService.name} - {selectedService.price}
+              {selectedService.name} ({selectedService.price})
             </p>
 
             {error && (
@@ -375,13 +397,13 @@ const Services: React.FC = () => {
 
             <form onSubmit={handleProceedToPayment} className="space-y-4">
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">
-                  Seçilmiş Bərbər
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Bərbər Seçin
                 </label>
                 <select
                   value={barberName}
                   onChange={(e) => setBarberName(e.target.value)}
-                  className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-amber-500 font-medium"
+                  className="w-full p-3.5 bg-gray-50 border border-gray-200 rounded-xl font-medium"
                 >
                   {barbers.map((b) => (
                     <option key={b.id} value={b.name}>
@@ -392,7 +414,7 @@ const Services: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Tarix
                 </label>
                 <input
@@ -400,13 +422,13 @@ const Services: React.FC = () => {
                   min={todayStr}
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
-                  className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-amber-500 font-medium"
+                  className="w-full p-3.5 bg-gray-50 border border-gray-200 rounded-xl font-medium"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Saat
                 </label>
                 <input
@@ -414,24 +436,53 @@ const Services: React.FC = () => {
                   min={date === todayStr ? currentTimeStr : undefined}
                   value={time}
                   onChange={(e) => setTime(e.target.value)}
-                  className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-amber-500 font-medium"
+                  className="w-full p-3.5 bg-gray-50 border border-gray-200 rounded-xl font-medium"
                   required
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Ödəniş Növü
+                </label>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer font-medium text-sm">
+                    <input
+                      type="radio"
+                      name="payment"
+                      checked={paymentMethod === "card"}
+                      onChange={() => setPaymentMethod("card")}
+                    />
+                    <span>💳 Kart (Stripe)</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer font-medium text-sm">
+                    <input
+                      type="radio"
+                      name="payment"
+                      checked={paymentMethod === "cash"}
+                      onChange={() => setPaymentMethod("cash")}
+                    />
+                    <span>💵 Nağd (Salonda)</span>
+                  </label>
+                </div>
               </div>
 
               <button
                 type="submit"
                 className="w-full bg-amber-600 text-white font-bold py-3.5 px-6 rounded-xl hover:bg-amber-700 transition-colors shadow-lg mt-4"
               >
-                Ödənişə Keç ({selectedService.price})
+                {paymentMethod === "card"
+                  ? `Ödənişə Keç (${selectedService.price})`
+                  : "Rezervasiyanı Təsdiqlə (Nağd)"}
               </button>
             </form>
           </motion.div>
         </div>
       )}
 
+      {/* 💳 Ödəniş Modalı (Kart və ya Nağd) */}
       {isPaymentOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -441,14 +492,18 @@ const Services: React.FC = () => {
               onClick={() => setIsPaymentOpen(false)}
               className="absolute top-6 right-6 text-gray-400 hover:text-gray-600"
             >
-              <X size={24} />
+              <X className="w-6 h-6" />
             </button>
-
-            <h3 className="text-2xl font-bold text-gray-900 mb-2 flex items-center gap-2">
-              <CreditCard className="text-amber-500" /> Təhlükəsiz Ödəniş
+            <h3 className="text-2xl font-bold text-gray-900 mb-2">
+              {paymentMethod === "card"
+                ? "Ödəniş Təsdiqi"
+                : "Nağd Ödəniş Təsdiqi"}
             </h3>
-            <p className="text-gray-500 text-sm mb-6">
-              Kart məlumatlarınızı daxil edərək rezervasiyanı tamamlayın.
+            <p className="text-gray-600 mb-6 text-sm">
+              Seçilmiş xidmət:{" "}
+              <span className="font-bold text-gray-900">
+                {selectedService?.name}
+              </span>
             </p>
 
             {error && (
@@ -457,34 +512,48 @@ const Services: React.FC = () => {
               </div>
             )}
 
-            <Elements stripe={stripePromise}>
-              <CheckoutForm
-                selectedService={selectedService}
-                barberName={barberName}
-                date={date}
-                time={time}
-                onSuccess={() => {
-                  setIsPaymentOpen(false);
-                  setMessage("Rezervasiya və ödəniş uğurla tamamlandı!");
-                  setTimeout(() => navigate("/dashboard"), 1500);
-                }}
-                onError={(msg) => setError(msg)}
-              />
-            </Elements>
+            {paymentMethod === "card" ? (
+              <Elements stripe={stripePromise}>
+                <CardCheckoutForm
+                  selectedService={selectedService}
+                  barberName={barberName}
+                  date={date}
+                  time={time}
+                  onSuccess={() => {
+                    setIsPaymentOpen(false);
+                    setMessage("Rezervasiya və ödəniş uğurla tamamlandı!");
+                    setTimeout(() => navigate("/dashboard"), 1500);
+                  }}
+                  onError={(msg) => setError(msg)}
+                />
+              </Elements>
+            ) : (
+              <div>
+                <p className="text-gray-600 mb-6 text-sm">
+                  Ödənişi salonumuzda xidmət bitdikdən sonra nağd şəkildə həyata
+                  keçirəcəksiniz.
+                </p>
+                <button
+                  onClick={handleCashBooking}
+                  className="w-full bg-green-600 text-white font-bold py-4 rounded-xl hover:bg-green-700 transition-colors shadow-lg"
+                >
+                  Rezervasiyanı Tamamla (Nağd)
+                </button>
+              </div>
+            )}
           </motion.div>
         </div>
       )}
 
+      {/* ✅ Uğurlu Mesaj Modalı */}
       {message && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl">
-            <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
-              <CheckCircle2 size={36} />
-            </div>
+            <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" />
             <h3 className="text-2xl font-bold text-gray-900 mb-2">
               Təbriklər!
             </h3>
-            <p className="text-gray-500">{message}</p>
+            <p className="text-gray-600 font-medium">{message}</p>
           </div>
         </div>
       )}

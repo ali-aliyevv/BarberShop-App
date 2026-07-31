@@ -1,4 +1,4 @@
-require('dotenv').config();
+require("dotenv").config();
 const express = require("express");
 const sqlite3 = require("sqlite3").verbose();
 const cors = require("cors");
@@ -7,7 +7,6 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
-
 const app = express();
 const PORT = 5000;
 
@@ -87,6 +86,7 @@ db.serialize(() => {
     date TEXT,
     time TEXT,
     service TEXT,
+    paymentMethod TEXT,
     status TEXT
   )`);
 
@@ -208,7 +208,6 @@ function minutesToTime(totalMinutes) {
   const minutes = (totalMinutes % 60).toString().padStart(2, "0");
   return `${hours}:${minutes}`;
 }
-
 
 app.post("/api/create-payment-intent", async (req, res) => {
   const { amount } = req.body;
@@ -334,7 +333,7 @@ app.get("/api/barbers", (req, res) => {
 app.post("/api/barbers", upload.single("image"), (req, res) => {
   const { name, role, experience, rating, specialty } = req.body;
   const image = req.file
-    ? `https://barbershop-app-4lof.onrender.com/uploads/${req.file.filename}`
+    ? `http://localhost:5000/uploads/${req.file.filename}`
     : "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=500";
 
   db.run(
@@ -373,107 +372,123 @@ app.get("/api/appointments", (req, res) => {
   db.all(`SELECT * FROM appointments`, [], (err, rows) => res.json(rows));
 });
 
+// Ağıllı Rezervasiya (Toqquşma, Fasilə və Müştəri Mühafizəsi ilə)
 app.post("/api/appointments", (req, res) => {
-  const { barberName, customer, phone, date, time, service } = req.body;
+  const { barberName, customer, phone, date, time, service, paymentMethod } =
+    req.body;
   const status = "Gözləyir";
 
+  // 1. Bərbərin həmin gün istirahətdə olub-olmadığını yoxlayırıq
   db.get(
     `SELECT * FROM barber_off_days WHERE barberName = ? AND offDate = ?`,
     [barberName, date],
     (err, offRow) => {
       if (offRow) {
-        return res
-          .status(400)
-          .json({
-            error: `${barberName} seçilmiş tarixdə istirahətdədir (işləmir)!`,
-          });
+        return res.status(400).json({
+          error: `${barberName} seçilmiş tarixdə istirahətdədir (işləmir)!`,
+        });
       }
 
+      // 2. Müştərinin həmin gün başqa bir bərbərdə və ya eyni saata rezervasiyasının olub-olmadığını yoxlayırıq
       db.get(
-        `SELECT duration FROM services WHERE name = ?`,
-        [service],
-        (err, serviceRow) => {
-          const durationStr = serviceRow ? serviceRow.duration : "30 dəq";
-          const serviceMinutes = parseDurationToMinutes(durationStr);
-          const totalBlockMinutes = serviceMinutes + 15;
+        `SELECT * FROM appointments WHERE customer = ? AND date = ? AND time = ?`,
+        [customer, date, time],
+        (err, duplicateRow) => {
+          if (duplicateRow) {
+            return res.status(400).json({
+              error: `Sizin ${date} tarixində saat ${time}-da artıq aktiv rezervasiyanız mövcuddur! Eyni saata təkrar randevu ala bilməzsiniz.`,
+            });
+          }
 
-          const newStartMin = timeToMinutes(time);
-          const newEndMin = newStartMin + totalBlockMinutes;
+          db.get(
+            `SELECT duration FROM services WHERE name = ?`,
+            [service],
+            (err, serviceRow) => {
+              const durationStr = serviceRow ? serviceRow.duration : "30 dəq";
+              const serviceMinutes = parseDurationToMinutes(durationStr);
+              const totalBlockMinutes = serviceMinutes + 15; // 15 dəqiqə fasilə
 
-          db.all(
-            `SELECT id, customer, time, service FROM appointments WHERE barberName = ? AND date = ?`,
-            [barberName, date],
-            async (err, existingAppts) => {
-              let existingAppointmentIdToReplace = null;
+              const newStartMin = timeToMinutes(time);
+              const newEndMin = newStartMin + totalBlockMinutes;
 
-              for (let appt of existingAppts) {
-                if (appt.customer === customer) {
-                  existingAppointmentIdToReplace = appt.id;
-                  continue;
-                }
+              db.all(
+                `SELECT id, customer, time, service FROM appointments WHERE barberName = ? AND date = ?`,
+                [barberName, date],
+                async (err, existingAppts) => {
+                  let existingAppointmentIdToReplace = null;
 
-                const sRow = await new Promise((resolve) => {
-                  db.get(
-                    `SELECT duration FROM services WHERE name = ?`,
-                    [appt.service],
-                    (e, r) => resolve(r),
-                  );
-                });
-                const existingDuration = parseDurationToMinutes(
-                  sRow ? sRow.duration : "30 dəq",
-                );
-                const existingBlockMinutes = existingDuration + 15;
+                  for (let appt of existingAppts) {
+                    if (appt.customer === customer) {
+                      existingAppointmentIdToReplace = appt.id;
+                      continue;
+                    }
 
-                const existingStartMin = timeToMinutes(appt.time);
-                const existingEndMin = existingStartMin + existingBlockMinutes;
-
-                if (
-                  newStartMin < existingEndMin &&
-                  newEndMin > existingStartMin
-                ) {
-                  return res.status(400).json({
-                    error: `Seçdiyiniz saat məşğuldur! Fasilə səbəbilə bu aralıq doludur (${minutesToTime(existingStartMin)} - ${minutesToTime(existingEndMin)}).`,
-                  });
-                }
-              }
-
-              const proceedWithSave = () => {
-                const query = `INSERT INTO appointments (barberName, customer, phone, date, time, service, status) VALUES (?, ?, ?, ?, ?, ?, ?)`;
-                db.run(
-                  query,
-                  [
-                    barberName,
-                    customer,
-                    phone || "",
-                    date,
-                    time,
-                    service,
-                    status,
-                  ],
-                  function (err) {
-                    if (err)
-                      return res.status(500).json({ error: err.message });
-                    res.json({
-                      message: "Rezervasiya uğurla tamamlandı!",
-                      id: this.lastID,
+                    const sRow = await new Promise((resolve) => {
+                      db.get(
+                        `SELECT duration FROM services WHERE name = ?`,
+                        [appt.service],
+                        (e, r) => resolve(r),
+                      );
                     });
-                  },
-                );
-              };
+                    const existingDuration = parseDurationToMinutes(
+                      sRow ? sRow.duration : "30 dəq",
+                    );
+                    const existingBlockMinutes = existingDuration + 15;
 
-              if (existingAppointmentIdToReplace) {
-                db.run(
-                  `DELETE FROM appointments WHERE id = ?`,
-                  [existingAppointmentIdToReplace],
-                  (err) => {
-                    if (err)
-                      return res.status(500).json({ error: err.message });
+                    const existingStartMin = timeToMinutes(appt.time);
+                    const existingEndMin =
+                      existingStartMin + existingBlockMinutes;
+
+                    if (
+                      newStartMin < existingEndMin &&
+                      newEndMin > existingStartMin
+                    ) {
+                      return res.status(400).json({
+                        error: `Seçdiyiniz saat məşğuldur! Fasilə səbəbilə bu aralıq doludur (${minutesToTime(existingStartMin)} - ${minutesToTime(existingEndMin)}).`,
+                      });
+                    }
+                  }
+
+                  const proceedWithSave = () => {
+                    const query = `INSERT INTO appointments (barberName, customer, phone, date, time, service, paymentMethod, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+                    db.run(
+                      query,
+                      [
+                        barberName,
+                        customer,
+                        phone || "",
+                        date,
+                        time,
+                        service,
+                        paymentMethod || "Kart",
+                        status,
+                      ],
+                      function (err) {
+                        if (err)
+                          return res.status(500).json({ error: err.message });
+                        res.json({
+                          message: "Rezervasiya uğurla tamamlandı!",
+                          id: this.lastID,
+                        });
+                      },
+                    );
+                  };
+
+                  if (existingAppointmentIdToReplace) {
+                    db.run(
+                      `DELETE FROM appointments WHERE id = ?`,
+                      [existingAppointmentIdToReplace],
+                      (err) => {
+                        if (err)
+                          return res.status(500).json({ error: err.message });
+                        proceedWithSave();
+                      },
+                    );
+                  } else {
                     proceedWithSave();
-                  },
-                );
-              } else {
-                proceedWithSave();
-              }
+                  }
+                },
+              );
             },
           );
         },
