@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useCallback } from "react";
 import {
   BrowserRouter as Router,
   Routes,
@@ -6,6 +6,7 @@ import {
   Link,
   Navigate,
   useLocation,
+  useNavigate,
 } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 
@@ -39,10 +40,10 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
 
 const AnimatedRoute = ({ children }: { children: React.ReactNode }) => (
   <motion.div
-    initial={{ opacity: 0, y: 15, filter: "blur(8px)" }}
-    animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-    exit={{ opacity: 0, y: -15, filter: "blur(8px)" }}
-    transition={{ duration: 0.4, ease: "easeOut" }}
+    initial={{ opacity: 0, y: 10 }}
+    animate={{ opacity: 1, y: 0 }}
+    exit={{ opacity: 0, y: -10 }}
+    transition={{ duration: 0.25, ease: "easeOut" }}
   >
     {children}
   </motion.div>
@@ -50,16 +51,17 @@ const AnimatedRoute = ({ children }: { children: React.ReactNode }) => (
 
 const AnimatedRoutes = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const isLoggedIn = localStorage.getItem("isLoggedIn") === "true";
   const userRole = localStorage.getItem("userRole");
 
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
     localStorage.removeItem("isLoggedIn");
     localStorage.removeItem("userRole");
     localStorage.removeItem("userName");
     localStorage.removeItem("userPhone");
-    window.location.href = "/login";
-  };
+    navigate("/login", { replace: true });
+  }, [navigate]);
 
   return (
     <>
@@ -185,7 +187,7 @@ const AnimatedRoutes = () => {
 const App: React.FC = () => {
   return (
     <Router>
-      <div className="min-h-screen bg-gray-50 flex flex-col font-sans overflow-hidden">
+      <div className="min-h-screen bg-gray-50 flex flex-col font-sans overflow-x-hidden">
         <div className="grow">
           <AnimatedRoutes />
         </div>

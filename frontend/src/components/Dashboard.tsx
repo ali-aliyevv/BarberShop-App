@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { CalendarCheck, Scissors, User, Calendar } from "lucide-react";
 
+const API_URL = "https://barbershop-app-4lof.onrender.com";
+
 interface Appointment {
   id: number;
   barberName: string;
@@ -19,7 +21,7 @@ const Dashboard: React.FC = () => {
     localStorage.getItem("userName")?.trim().toLowerCase() || "";
 
   useEffect(() => {
-    fetch("https://barbershop-app-4lof.onrender.com/appointments")
+    fetch(`${API_URL}/api/appointments`)
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) {
@@ -113,7 +115,6 @@ const Dashboard: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* ✂️ Xidmət Adı Burada Açıq Şəkildə Görүнür */}
                   <h3 className="text-xl font-bold text-gray-900 mb-2 flex items-center gap-2">
                     <Scissors className="w-5 h-5 text-amber-600" />
                     <span>{app.service}</span>

@@ -3,6 +3,8 @@ import { motion } from "framer-motion";
 import { Star, Scissors, Award, Calendar } from "lucide-react";
 import { Link } from "react-router-dom";
 
+const API_URL = "https://barbershop-app-4lof.onrender.com";
+
 interface Barber {
   id: number;
   name: string;
@@ -18,23 +20,26 @@ const Barbers: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("https://barbershop-app-4lof.onrender.com/api/barbers")
+    fetch(`${API_URL}/api/barbers`)
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) setBarbers(data);
         setLoading(false);
       })
-      .catch((err) => console.error(err));
+      .catch((err) => {
+        console.error(err);
+        setLoading(false);
+      });
   }, []);
 
   return (
-    <div className="py-24 px-8 max-w-7xl mx-auto min-h-screen bg-gray-50">
+    <div className="py-24 px-8 max-w-7xl mx-auto min-h-[calc(100vh-80px)] bg-gray-50">
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         className="text-center mb-16"
       >
-        <h2 className="text-5xl font-extrabold text-gray-900 tracking-tight">
+        <h2 className="text-4xl md:text-5xl font-extrabold text-gray-900 tracking-tight">
           Peşəkar Bərbərlərimiz
         </h2>
         <p className="text-gray-500 mt-4 text-lg max-w-2xl mx-auto">
@@ -45,7 +50,9 @@ const Barbers: React.FC = () => {
       </motion.div>
 
       {loading ? (
-        <div className="text-center text-gray-500">Bərbərlər yüklənir...</div>
+        <div className="text-center text-gray-500 font-medium py-12">
+          Bərbərlər yüklənir...
+        </div>
       ) : (
         <div className="grid gap-10 md:grid-cols-2 max-w-4xl mx-auto">
           {barbers.map((barber, index) => (
@@ -53,7 +60,7 @@ const Barbers: React.FC = () => {
               key={barber.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.2 }}
+              transition={{ delay: index * 0.15 }}
               className="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden group hover:shadow-2xl transition-all duration-300 flex flex-col"
             >
               <div className="h-64 overflow-hidden relative bg-gray-200">
@@ -78,12 +85,12 @@ const Barbers: React.FC = () => {
 
                 <div className="space-y-2 mb-6 text-sm text-gray-600">
                   <p className="flex items-center gap-2">
-                    <Award size={16} className="text-amber-500" />{" "}
-                    {barber.experience}
+                    <Award size={16} className="text-amber-500 shrink-0" />
+                    <span>{barber.experience}</span>
                   </p>
                   <p className="flex items-center gap-2">
-                    <Scissors size={16} className="text-amber-500" />{" "}
-                    Mütəxəssislik: {barber.specialty}
+                    <Scissors size={16} className="text-amber-500 shrink-0" />
+                    <span>Mütəxəssislik: {barber.specialty}</span>
                   </p>
                 </div>
 
@@ -91,7 +98,7 @@ const Barbers: React.FC = () => {
                   <Link
                     to="/services"
                     state={{ selectedBarber: barber.name }}
-                    className="w-full flex items-center justify-center gap-2 bg-gray-900 text-white font-bold py-3 px-6 rounded-xl hover:bg-amber-500 transition-colors"
+                    className="w-full flex items-center justify-center gap-2 bg-gray-900 text-white font-bold py-3.5 px-6 rounded-xl hover:bg-amber-500 transition-colors shadow-lg"
                   >
                     <Calendar size={18} /> Randevu Al
                   </Link>

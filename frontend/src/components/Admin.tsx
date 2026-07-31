@@ -17,6 +17,8 @@ import {
   X,
 } from "lucide-react";
 
+const API_URL = "https://barbershop-app-4lof.onrender.com";
+
 interface Appointment {
   id: number;
   barberName: string;
@@ -78,23 +80,22 @@ const Admin: React.FC = () => {
   const userRole = localStorage.getItem("userRole");
   const currentUserName = localStorage.getItem("userName");
 
-  // 🚀 useCallback ilə optimizasiya olundu ki, gərəksiz yerə hər renderdə yenidən yaranmasın
   const loadData = useCallback(() => {
-    fetch("https://barbershop-app-4lof.onrender.com/api/appointments")
+    fetch(`${API_URL}/api/appointments`)
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) setAppointments(data);
       })
       .catch((err) => console.error(err));
 
-    fetch("https://barbershop-app-4lof.onrender.com/api/services")
+    fetch(`${API_URL}/api/services`)
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) setServices(data);
       })
       .catch((err) => console.error(err));
 
-    fetch("https://barbershop-app-4lof.onrender.com/api/barbers")
+    fetch(`${API_URL}/api/barbers`)
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) {
@@ -111,7 +112,7 @@ const Admin: React.FC = () => {
 
   const handleAddService = async (e: React.FormEvent) => {
     e.preventDefault();
-    await fetch("https://barbershop-app-4lof.onrender.com/api/services", {
+    await fetch(`${API_URL}/api/services`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -142,7 +143,7 @@ const Admin: React.FC = () => {
       formData.append("image", barberImageFile);
     }
 
-    const res = await fetch("https://barbershop-app-4lof.onrender.com/api/barbers", {
+    const res = await fetch(`${API_URL}/api/barbers`, {
       method: "POST",
       body: formData,
     });
@@ -168,8 +169,8 @@ const Admin: React.FC = () => {
 
     const url =
       deleteTarget.type === "service"
-        ? `https://barbershop-app-4lof.onrender.com/api/services/${deleteTarget.id}`
-        : `https://barbershop-app-4lof.onrender.com/api/barbers/${deleteTarget.id}`;
+        ? `${API_URL}/api/services/${deleteTarget.id}`
+        : `${API_URL}/api/barbers/${deleteTarget.id}`;
 
     const res = await fetch(url, { method: "DELETE" });
     if (res.ok) {
@@ -332,7 +333,7 @@ const Admin: React.FC = () => {
               <h3 className="text-xl font-bold mb-6 flex items-center gap-3 text-gray-900">
                 <div className="p-2.5 bg-amber-100 text-amber-600 rounded-2xl">
                   <Plus size={22} />
-                </div>{" "}
+                </div>
                 Xidmətlər
               </h3>
               <form onSubmit={handleAddService} className="space-y-4 mb-6">
@@ -410,7 +411,7 @@ const Admin: React.FC = () => {
               <h3 className="text-xl font-bold mb-6 flex items-center gap-3 text-gray-900">
                 <div className="p-2.5 bg-amber-100 text-amber-600 rounded-2xl">
                   <Plus size={22} />
-                </div>{" "}
+                </div>
                 Bərbərlər
               </h3>
               <form onSubmit={handleAddBarber} className="space-y-4 mb-6">
@@ -498,7 +499,7 @@ const Admin: React.FC = () => {
             <h3 className="text-xl font-bold mb-6 flex items-center gap-3 text-gray-900">
               <div className="p-2.5 bg-amber-100 text-amber-600 rounded-2xl">
                 <CalendarOff size={22} />
-              </div>{" "}
+              </div>
               İstirahət Günü Təyin Et
             </h3>
             {offMessage && (
@@ -510,17 +511,14 @@ const Admin: React.FC = () => {
               onSubmit={async (e) => {
                 e.preventDefault();
                 setOffMessage("");
-                const res = await fetch(
-                  "https://barbershop-app-4lof.onrender.com/api/barber-off-days",
-                  {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      barberName: offBarberName,
-                      offDate,
-                    }),
-                  },
-                );
+                const res = await fetch(`${API_URL}/api/barber-off-days`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    barberName: offBarberName,
+                    offDate,
+                  }),
+                });
                 const data = await res.json();
                 setOffMessage(data.message);
               }}
@@ -644,7 +642,7 @@ const Admin: React.FC = () => {
 
       <AnimatePresence>
         {modalMessage && (
-          <div className="fixed inset-0 z-9999 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
             <motion.div
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -679,7 +677,7 @@ const Admin: React.FC = () => {
 
       <AnimatePresence>
         {deleteTarget && (
-          <div className="fixed inset-0 z-9999 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
             <motion.div
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}

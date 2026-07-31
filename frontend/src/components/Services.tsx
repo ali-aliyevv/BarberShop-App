@@ -10,6 +10,8 @@ import {
   useElements,
 } from "@stripe/react-stripe-js";
 
+const API_URL = "https://barbershop-app-4lof.onrender.com";
+
 const stripePromise = loadStripe(
   "pk_test_51TyAnrAQ2hvaGElLz0NmRpLlBO7EQ55BBlMGyidzOvoiPrMjVdpdB1XjRdSYM8YZAJ6L80rrhc9Lat23wLMUphH300CPvA4lLk",
 );
@@ -30,7 +32,7 @@ interface Barber {
 
 const containerVariants = {
   hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.2 } },
+  show: { opacity: 1, transition: { staggerChildren: 0.15 } },
 };
 
 const TiltCard = ({
@@ -55,10 +57,8 @@ const TiltCard = ({
     const height = rect.height;
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
-    const xPct = mouseX / width - 0.5;
-    const yPct = mouseY / height - 0.5;
-    x.set(xPct);
-    y.set(yPct);
+    x.set(mouseX / width - 0.5);
+    y.set(mouseY / height - 0.5);
   };
 
   const handleMouseLeave = () => {
@@ -118,7 +118,6 @@ const TiltCard = ({
   );
 };
 
-// 💳 Stripe Kart Ödəniş Forması (Həmişə <Elements> daxilində işləyəcək)
 const CardCheckoutForm: React.FC<{
   selectedService: ServiceType | null;
   barberName: string;
@@ -144,14 +143,11 @@ const CardCheckoutForm: React.FC<{
         ? parseFloat(selectedService.price.replace(/[^\d.]/g, ""))
         : 15;
 
-      const res = await fetch(
-        "https://barbershop-app-4lof.onrender.com/create-payment-intent",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ amount: priceNumeric }),
-        },
-      );
+      const res = await fetch(`${API_URL}/api/create-payment-intent`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: priceNumeric }),
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Ödəniş xətası");
 
@@ -167,7 +163,7 @@ const CardCheckoutForm: React.FC<{
       }
 
       if (paymentResult.paymentIntent?.status === "succeeded") {
-        const apptRes = await fetch("https://barbershop-app-4lof.onrender.com/appointments", {
+        const apptRes = await fetch(`${API_URL}/api/appointments`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -254,13 +250,14 @@ const Services: React.FC = () => {
   const customerPhone = localStorage.getItem("userPhone") || "";
 
   useEffect(() => {
-    fetch("https://barbershop-app-4lof.onrender.com/services")
+    fetch(`${API_URL}/api/services`)
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) setServices(data);
-      });
+      })
+      .catch((err) => console.error(err));
 
-    fetch("https://barbershop-app-4lof.onrender.com/barbers")
+    fetch(`${API_URL}/api/barbers`)
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) {
@@ -269,7 +266,8 @@ const Services: React.FC = () => {
             setBarberName(data[0].name);
           }
         }
-      });
+      })
+      .catch((err) => console.error(err));
   }, [preSelectedBarber]);
 
   const handleOpenModal = (service: ServiceType) => {
@@ -301,10 +299,9 @@ const Services: React.FC = () => {
     setIsPaymentOpen(true);
   };
 
-  // Nağd ödənişin birbaşa bazaya yazılması
   const handleCashBooking = async () => {
     try {
-      const res = await fetch("https://barbershop-app-4lof.onrender.com/appointments", {
+      const res = await fetch(`${API_URL}/api/appointments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -323,14 +320,15 @@ const Services: React.FC = () => {
       setIsPaymentOpen(false);
       setMessage("Rezervasiya uğurla tamamlandı! (Salonda ödəniş)");
       setTimeout(() => navigate("/dashboard"), 1500);
-   } catch (err: unknown) {
+    } catch (err: unknown) {
       if (err instanceof Error) {
         setError(err.message);
       } else {
         setError("Naməlum xəta baş verdi");
       }
-   }
-  }
+    }
+  };
+
   const todayStr = new Date().toISOString().split("T")[0];
   const now = new Date();
   const currentTimeStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
@@ -480,7 +478,7 @@ const Services: React.FC = () => {
         </div>
       )}
 
-      {/* 💳 Ödəniş Modalı (Kart və ya Nağd) */}
+      {/* 💳 Ödəniş Modalı */}
       {isPaymentOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <motion.div
