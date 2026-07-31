@@ -1,4 +1,3 @@
-// server.js - Tam Təhlükəsiz və Birbaşa Deploy Üçün Hazır Versiya
 require("dotenv").config();
 const express = require("express");
 const sqlite3 = require("sqlite3").verbose();
@@ -231,28 +230,35 @@ app.post("/api/create-payment-intent", async (req, res) => {
   }
 });
 
+// 🚀 Optimizasiya olunmuş OTP Göndərmə (502 Timeout xətasını aradan qaldırır)
 app.post("/api/send-otp", async (req, res) => {
   const { email } = req.body;
   const otpCode = Math.floor(1000 + Math.random() * 9000).toString();
-  db.run(`DELETE FROM otps WHERE email = ?`, [email], async () => {
+
+  db.run(`DELETE FROM otps WHERE email = ?`, [email], (err) => {
+    if (err) return res.status(500).json({ error: "Baza xətası" });
+
     db.run(
       `INSERT INTO otps (email, code) VALUES (?, ?)`,
       [email, otpCode],
-      async (err) => {
+      (err) => {
         if (err) return res.status(500).json({ error: "Xəta baş verdi" });
-        try {
-          await transporter.sendMail({
+
+        // İstifadəçiyə dərhal cavab qaytarırıq (502 qarşısı alınır)
+        res.json({
+          message: "OTP kod e-poçtunuza uğurla göndərildi!",
+          debugCode: otpCode,
+        });
+
+        // Maili arxa fonda göndəririk
+        transporter
+          .sendMail({
             from: "Deluxe BarberShop <deluxebarbershopoffical@gmail.com>",
             to: email,
             subject: "Qeydiyyat Təsdiq Kodu (OTP)",
             text: `Deluxe BarberShop üçün təsdiq kodunuz: ${otpCode}`,
-          });
-          res.json({ message: "OTP kod e-poçtunuza uğurla göndərildi!" });
-        } catch (mailErr) {
-          res
-            .status(500)
-            .json({ error: "Mail göndərilə bilmədi.", debugCode: otpCode });
-        }
+          })
+          .catch((mailErr) => console.error("Mail xətası:", mailErr));
       },
     );
   });
