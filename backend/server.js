@@ -383,8 +383,38 @@ app.post("/api/barber-off-days", (req, res) => {
   );
 });
 
+// ⏳ Ağıllı Avtomatik Status Yeniləmə (Gözləyir -> Tamamlandı)
 app.get("/api/appointments", (req, res) => {
-  db.all(`SELECT * FROM appointments`, [], (err, rows) => res.json(rows));
+  // Cari zamanı Bakı vaxtı ilə alırıq (Gecikmələrə qarşı lokal saat qurşağı)
+  const now = new Date();
+
+  // Nümunə üçün 1 saat öncəki zamanı götürürük ki, tam dəqiq bitdiyinə əmin olaq
+  // (Yəni saat 14:00-da randevu alınıbsa, 15:00 olanda "Tamamlandı" edirik)
+  now.setHours(now.getHours() - 1);
+
+  const currentDate = now.toISOString().split("T")[0];
+  const currentHours = String(now.getHours()).padStart(2, "0");
+  const currentMinutes = String(now.getMinutes()).padStart(2, "0");
+  const currentTime = `${currentHours}:${currentMinutes}`;
+
+  // Keçmişdəki "Gözləyir" statuslu randevuları "Tamamlandı" olaraq dəyişdiririk
+  const updateQuery = `
+    UPDATE appointments 
+    SET status = 'Tamamlandı' 
+    WHERE status = 'Gözləyir' AND (
+      date < ? OR (date = ? AND time <= ?)
+    )
+  `;
+
+  db.run(updateQuery, [currentDate, currentDate, currentTime], (err) => {
+    if (err) console.error("Avtomatik status yeniləmə xətası:", err);
+
+    // Bütün cədvəli geriyə qaytarırıq (artıq yenilənmiş halda)
+    db.all(`SELECT * FROM appointments`, [], (err, rows) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json(rows);
+    });
+  });
 });
 
 app.post("/api/appointments", (req, res) => {
@@ -397,11 +427,9 @@ app.post("/api/appointments", (req, res) => {
     [barberName, date],
     (err, offRow) => {
       if (offRow) {
-        return res
-          .status(400)
-          .json({
-            error: `${barberName} seçilmiş tarixdə istirahətdədir (işləmir)!`,
-          });
+        return res.status(400).json({
+          error: `${barberName} seçilmiş tarixdə istirahətdədir (işləmir)!`,
+        });
       }
 
       db.get(
@@ -416,7 +444,7 @@ app.post("/api/appointments", (req, res) => {
           const newEndMin = newStartMin + totalBlockMinutes;
 
           db.all(
-            `SELECT id, customer, barberName, time, service FROM appointments WHERE date = ?`,
+            `SELECT id, customer, barberName, time, service FROM appointments WHERE date = ? AND status != 'Ləğv edildi'`,
             [date],
             async (err, allDateAppts) => {
               let existingAppointmentIdToReplace = null;
