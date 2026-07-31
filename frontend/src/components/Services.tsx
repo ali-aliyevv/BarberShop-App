@@ -145,7 +145,7 @@ const CardCheckoutForm: React.FC<{
         : 15;
 
       const res = await fetch(
-        "http://localhost:5000/api/create-payment-intent",
+        "https://barbershop-app-4lof.onrender.com/create-payment-intent",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -167,7 +167,7 @@ const CardCheckoutForm: React.FC<{
       }
 
       if (paymentResult.paymentIntent?.status === "succeeded") {
-        const apptRes = await fetch("http://localhost:5000/api/appointments", {
+        const apptRes = await fetch("https://barbershop-app-4lof.onrender.com/appointments", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -254,13 +254,13 @@ const Services: React.FC = () => {
   const customerPhone = localStorage.getItem("userPhone") || "";
 
   useEffect(() => {
-    fetch("http://localhost:5000/api/services")
+    fetch("https://barbershop-app-4lof.onrender.com/services")
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) setServices(data);
       });
 
-    fetch("http://localhost:5000/api/barbers")
+    fetch("https://barbershop-app-4lof.onrender.com/barbers")
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) {
@@ -304,7 +304,7 @@ const Services: React.FC = () => {
   // Nağd ödənişin birbaşa bazaya yazılması
   const handleCashBooking = async () => {
     try {
-      const res = await fetch("http://localhost:5000/api/appointments", {
+      const res = await fetch("https://barbershop-app-4lof.onrender.com/appointments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
