@@ -295,7 +295,9 @@ const Services: React.FC = () => {
       return;
     }
     setError("");
-    setSelectedService(null);
+    // ✅ FIX: selectedService BURDA null edilmirdi əvvəllər — indi ödəniş
+    // modalı boyunca xidmət seçimi qorunur ki, backend-ə "service" sahəsi
+    // undefined getməsin.
     setIsPaymentOpen(true);
   };
 
@@ -318,6 +320,7 @@ const Services: React.FC = () => {
       if (!res.ok) throw new Error(data.error || "Rezervasiya xətası");
 
       setIsPaymentOpen(false);
+      setSelectedService(null); // ✅ FIX: uğurlu rezervasiyadan sonra təmizlə
       setMessage("Rezervasiya uğurla tamamlandı! (Salonda ödəniş)");
       setTimeout(() => navigate("/dashboard"), 1500);
     } catch (err: unknown) {
@@ -519,6 +522,7 @@ const Services: React.FC = () => {
                   time={time}
                   onSuccess={() => {
                     setIsPaymentOpen(false);
+                    setSelectedService(null); // ✅ FIX: uğurlu ödənişdən sonra təmizlə
                     setMessage("Rezervasiya və ödəniş uğurla tamamlandı!");
                     setTimeout(() => navigate("/dashboard"), 1500);
                   }}
