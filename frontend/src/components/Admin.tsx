@@ -80,31 +80,46 @@ const Admin: React.FC = () => {
   const userRole = localStorage.getItem("userRole");
   const currentUserName = localStorage.getItem("userName");
 
+  // 🚀 OPTİMİZASİYA 1: Sonsuz döngünün qarşısı alındı (Asılılıq massivi boşaldıldı)
   const loadData = useCallback(() => {
     fetch(`${API_URL}/api/appointments`)
       .then((res) => res.json())
       .then((data) => {
-        if (Array.isArray(data)) setAppointments(data);
+        setAppointments(Array.isArray(data) ? data : []);
       })
-      .catch((err) => console.error(err));
+      .catch((err) => {
+        console.error(err);
+        setAppointments([]);
+      });
 
     fetch(`${API_URL}/api/services`)
       .then((res) => res.json())
       .then((data) => {
-        if (Array.isArray(data)) setServices(data);
+        setServices(Array.isArray(data) ? data : []);
       })
-      .catch((err) => console.error(err));
+      .catch((err) => {
+        console.error(err);
+        setServices([]);
+      });
 
     fetch(`${API_URL}/api/barbers`)
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) {
           setBarbers(data);
-          if (data.length > 0 && !offBarberName) setOffBarberName(data[0].name);
+          // offBarberName yalnız ilk dəfə və ya boş olduqda təyin edilir
+          setOffBarberName((prev) =>
+            prev ? prev : data.length > 0 ? data[0].name : "",
+          );
+        } else {
+          setBarbers([]);
         }
       })
-      .catch((err) => console.error(err));
-  }, [offBarberName]);
+      .catch((err) => {
+        console.error(err);
+        setBarbers([]);
+      });
+  }, []); // <-- Boş massiv! Artıq API-lər sadəcə 1 dəfə yüklənəcək.
 
   useEffect(() => {
     loadData();
@@ -189,10 +204,14 @@ const Admin: React.FC = () => {
     }
   };
 
+  // 🚀 OPTİMİZASİYA 2: Ağ ekranın (çökmənin) qarşısını alan təhlükəsiz massiv yoxlanışı
+  const safeAppointments = appointments || [];
+  const safeServices = services || [];
+
   const myAppointments =
     userRole === "admin"
-      ? appointments
-      : appointments.filter((app) => app.barberName === currentUserName);
+      ? safeAppointments
+      : safeAppointments.filter((app) => app.barberName === currentUserName);
 
   const todayStr = new Date().toISOString().split("T")[0];
   const currentMonthStr = todayStr.substring(0, 7);
@@ -201,7 +220,7 @@ const Admin: React.FC = () => {
   let monthlyRevenue = 0;
 
   myAppointments.forEach((app) => {
-    const s = services.find((serv) => serv.name === app.service);
+    const s = safeServices.find((serv) => serv.name === app.service);
     const priceNum = s ? parseFloat(s.price.replace(/[^\d.]/g, "")) || 0 : 15;
 
     if (app.date === todayStr) {
@@ -259,7 +278,7 @@ const Admin: React.FC = () => {
           Xoş gəldiniz,{" "}
           <span className="font-bold text-amber-600">{currentUserName}</span>!
         </p>
-        <div className="w-20 h-1 bg-linear-to-r from-amber-400 to-orange-500 mt-4 rounded-full"></div>
+        <div className="w-20 h-1 bg-linrar-to-r from-amber-400 to-orange-500 mt-4 rounded-full"></div>
       </motion.div>
 
       {/* Statistika Kartları */}
