@@ -78,6 +78,7 @@ const Admin: React.FC = () => {
     title: string;
     text: string;
   } | null>(null);
+
   const [deleteTarget, setDeleteTarget] = useState<{
     type: "service" | "barber" | "offday";
     id: number;
@@ -87,7 +88,6 @@ const Admin: React.FC = () => {
   const userRole = localStorage.getItem("userRole");
   const currentUserName = localStorage.getItem("userName");
 
-  // 🚀 OPTİMİZASİYA 1: Sonsuz döngünün qarşısı alındı (Asılılıq massivi boşaldıldı)
   const loadData = useCallback(() => {
     fetch(`${API_URL}/api/appointments`)
       .then((res) => res.json())
@@ -114,7 +114,6 @@ const Admin: React.FC = () => {
       .then((data) => {
         if (Array.isArray(data)) {
           setBarbers(data);
-          // offBarberName yalnız ilk dəfə və ya boş olduqda təyin edilir
           setOffBarberName((prev) =>
             prev ? prev : data.length > 0 ? data[0].name : "",
           );
@@ -136,7 +135,7 @@ const Admin: React.FC = () => {
         console.error(err);
         setOffDays([]);
       });
-  }, []); // <-- Boş massiv! Artıq API-lər sadəcə 1 dəfə yüklənəcək.
+  }, []);
 
   useEffect(() => {
     loadData();
@@ -228,7 +227,6 @@ const Admin: React.FC = () => {
     }
   };
 
-  // 🚀 OPTİMİZASİYA 2: Ağ ekranın (çökmənin) qarşısını alan təhlükəsiz massiv yoxlanışı
   const safeAppointments = appointments || [];
   const safeServices = services || [];
   const safeOffDays = offDays || [];
@@ -248,20 +246,27 @@ const Admin: React.FC = () => {
     const s = safeServices.find((serv) => serv.name === app.service);
     const priceNum = s ? parseFloat(s.price.replace(/[^\d.]/g, "")) || 0 : 15;
 
-    if (app.date === todayStr) {
-      dailyRevenue += priceNum;
-    }
-    if (app.date && app.date.startsWith(currentMonthStr)) {
-      monthlyRevenue += priceNum;
+    // Gəliri yalnız "Gözləyir" və ya "Tamamlandı" olanlardan hesablamaq yaxşıdır
+    if (app.status !== "Ləğv edildi") {
+      if (app.date === todayStr) {
+        dailyRevenue += priceNum;
+      }
+      if (app.date && app.date.startsWith(currentMonthStr)) {
+        monthlyRevenue += priceNum;
+      }
     }
   });
 
-  const todayAppointmentsCount = myAppointments.filter(
-    (app) => app.date === todayStr,
+  // ✅ YALNIZ statusu "Gözləyir" olan aktiv rezervasiyaların sayı
+  const activeAppointmentsCount = myAppointments.filter(
+    (app) => app.status === "Gözləyir",
   ).length;
 
-  // Yalnız bu gündən sonrakı (keçməyən) istirahət günlərini göstəririk,
-  // admin isə hamısını, bərbər isə yalnız özününkünü görür
+  // ✅ Bu günə aid olan yalnız aktiv (Gözləyir) rezervasiyaların sayı
+  const todayAppointmentsCount = myAppointments.filter(
+    (app) => app.date === todayStr && app.status === "Gözləyir",
+  ).length;
+
   const visibleOffDays = safeOffDays
     .filter((o) => o.offDate >= todayStr)
     .filter((o) => userRole === "admin" || o.barberName === currentUserName)
@@ -310,7 +315,7 @@ const Admin: React.FC = () => {
           Xoş gəldiniz,{" "}
           <span className="font-bold text-amber-600">{currentUserName}</span>!
         </p>
-        <div className="w-20 h-1 bg-linrar-to-r from-amber-400 to-orange-500 mt-4 rounded-full"></div>
+        <div className="w-20 h-1 bg-linear-to-r from-amber-400 to-orange-500 mt-4 rounded-full"></div>
       </motion.div>
 
       {/* Statistika Kartları */}
@@ -355,7 +360,7 @@ const Admin: React.FC = () => {
             Aktiv Rezervasiyalar
           </h3>
           <p className="text-4xl font-extrabold mt-2">
-            {myAppointments.length} sifariş
+            {activeAppointmentsCount} sifariş
           </p>
         </motion.div>
 
@@ -368,7 +373,7 @@ const Admin: React.FC = () => {
           </div>
           <Users size={36} className="mb-4 text-purple-200" />
           <h3 className="text-sm font-semibold tracking-wide uppercase opacity-90">
-            Bu Gün
+            Bu Gün Gözləyən
           </h3>
           <p className="text-4xl font-extrabold mt-2">
             Müştəri: {todayAppointmentsCount}
@@ -604,7 +609,6 @@ const Admin: React.FC = () => {
               </form>
             </div>
 
-            {/* 🆕 Mövcud istirahət günlərinin siyahısı */}
             <div className="border-t pt-4 max-h-48 overflow-y-auto space-y-2">
               <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
                 Qeyd Olunmuş İstirahət Günləri
@@ -644,7 +648,6 @@ const Admin: React.FC = () => {
         </div>
       )}
 
-      {/* 🆕 Bərbər öz istirahət günlərini görsün (admin olmayan istifadəçi üçün) */}
       {userRole !== "admin" && visibleOffDays.length > 0 && (
         <div className="bg-white p-8 rounded-3xl shadow-xl border border-gray-100/80 mb-12">
           <h3 className="text-xl font-bold mb-6 flex items-center gap-3 text-gray-900">
@@ -695,7 +698,7 @@ const Admin: React.FC = () => {
                     colSpan={7}
                     className="text-center py-10 text-gray-400 font-normal"
                   >
-                    Hələ ki aktiv rezervasiya yoxdur.
+                    Hələ ki rezervasiya yoxdur.
                   </td>
                 </tr>
               ) : (
@@ -741,7 +744,9 @@ const Admin: React.FC = () => {
                       </a>
                     </td>
                     <td className="p-5">
-                      <span className="bg-amber-50 text-amber-700 border border-amber-200 py-1.5 px-4 rounded-full font-bold text-xs uppercase tracking-wider">
+                      <span
+                        className={`py-1.5 px-4 rounded-full font-bold text-xs uppercase tracking-wider border ${app.status === "Tamamlandı" ? "bg-green-50 text-green-700 border-green-200" : "bg-amber-50 text-amber-700 border-amber-200"}`}
+                      >
                         {app.status}
                       </span>
                     </td>
@@ -755,7 +760,7 @@ const Admin: React.FC = () => {
 
       <AnimatePresence>
         {modalMessage && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="fixed inset-0 z-9999 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
             <motion.div
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -790,7 +795,7 @@ const Admin: React.FC = () => {
 
       <AnimatePresence>
         {deleteTarget && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="fixed inset-0 z-9999 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
             <motion.div
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
