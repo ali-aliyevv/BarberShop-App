@@ -47,10 +47,17 @@ interface Barber {
   image: string;
 }
 
+interface OffDay {
+  id: number;
+  barberName: string;
+  offDate: string;
+}
+
 const Admin: React.FC = () => {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [barbers, setBarbers] = useState<Barber[]>([]);
+  const [offDays, setOffDays] = useState<OffDay[]>([]);
 
   const [newServiceName, setNewServiceName] = useState("");
   const [newServicePrice, setNewServicePrice] = useState("");
@@ -72,7 +79,7 @@ const Admin: React.FC = () => {
     text: string;
   } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{
-    type: "service" | "barber";
+    type: "service" | "barber" | "offday";
     id: number;
     name: string;
   } | null>(null);
@@ -118,6 +125,16 @@ const Admin: React.FC = () => {
       .catch((err) => {
         console.error(err);
         setBarbers([]);
+      });
+
+    fetch(`${API_URL}/api/barber-off-days`)
+      .then((res) => res.json())
+      .then((data) => {
+        setOffDays(Array.isArray(data) ? data : []);
+      })
+      .catch((err) => {
+        console.error(err);
+        setOffDays([]);
       });
   }, []); // <-- Boş massiv! Artıq API-lər sadəcə 1 dəfə yüklənəcək.
 
@@ -185,14 +202,21 @@ const Admin: React.FC = () => {
     const url =
       deleteTarget.type === "service"
         ? `${API_URL}/api/services/${deleteTarget.id}`
-        : `${API_URL}/api/barbers/${deleteTarget.id}`;
+        : deleteTarget.type === "barber"
+          ? `${API_URL}/api/barbers/${deleteTarget.id}`
+          : `${API_URL}/api/barber-off-days/${deleteTarget.id}`;
 
     const res = await fetch(url, { method: "DELETE" });
     if (res.ok) {
       setDeleteTarget(null);
       setModalMessage({
         title: "Silindi",
-        text: `${deleteTarget.type === "service" ? "Xidmət" : "Bərbər"} uğurla silindi.`,
+        text:
+          deleteTarget.type === "service"
+            ? "Xidmət uğurla silindi."
+            : deleteTarget.type === "barber"
+              ? "Bərbər uğurla silindi."
+              : "İstirahət günü uğurla silindi.",
       });
       loadData();
     } else {
@@ -207,6 +231,7 @@ const Admin: React.FC = () => {
   // 🚀 OPTİMİZASİYA 2: Ağ ekranın (çökmənin) qarşısını alan təhlükəsiz massiv yoxlanışı
   const safeAppointments = appointments || [];
   const safeServices = services || [];
+  const safeOffDays = offDays || [];
 
   const myAppointments =
     userRole === "admin"
@@ -234,6 +259,13 @@ const Admin: React.FC = () => {
   const todayAppointmentsCount = myAppointments.filter(
     (app) => app.date === todayStr,
   ).length;
+
+  // Yalnız bu gündən sonrakı (keçməyən) istirahət günlərini göstəririk,
+  // admin isə hamısını, bərbər isə yalnız özününkünü görür
+  const visibleOffDays = safeOffDays
+    .filter((o) => o.offDate >= todayStr)
+    .filter((o) => userRole === "admin" || o.barberName === currentUserName)
+    .sort((a, b) => a.offDate.localeCompare(b.offDate));
 
   const getGoogleCalendarUrl = (app: Appointment) => {
     const title = encodeURIComponent(
@@ -514,60 +546,122 @@ const Admin: React.FC = () => {
             </div>
           </div>
 
-          <div className="bg-white p-8 rounded-3xl shadow-xl border border-gray-100/80">
-            <h3 className="text-xl font-bold mb-6 flex items-center gap-3 text-gray-900">
-              <div className="p-2.5 bg-amber-100 text-amber-600 rounded-2xl">
-                <CalendarOff size={22} />
-              </div>
-              İstirahət Günü Təyin Et
-            </h3>
-            {offMessage && (
-              <div className="mb-4 p-4 bg-green-50 text-green-700 text-sm font-semibold rounded-2xl">
-                {offMessage}
-              </div>
-            )}
-            <form
-              onSubmit={async (e) => {
-                e.preventDefault();
-                setOffMessage("");
-                const res = await fetch(`${API_URL}/api/barber-off-days`, {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    barberName: offBarberName,
-                    offDate,
-                  }),
-                });
-                const data = await res.json();
-                setOffMessage(data.message);
-              }}
-              className="space-y-4"
-            >
-              <select
-                value={offBarberName}
-                onChange={(e) => setOffBarberName(e.target.value)}
-                className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:border-amber-500 font-medium"
+          <div className="bg-white p-8 rounded-3xl shadow-xl border border-gray-100/80 flex flex-col justify-between">
+            <div>
+              <h3 className="text-xl font-bold mb-6 flex items-center gap-3 text-gray-900">
+                <div className="p-2.5 bg-amber-100 text-amber-600 rounded-2xl">
+                  <CalendarOff size={22} />
+                </div>
+                İstirahət Günü Təyin Et
+              </h3>
+              {offMessage && (
+                <div className="mb-4 p-4 bg-green-50 text-green-700 text-sm font-semibold rounded-2xl">
+                  {offMessage}
+                </div>
+              )}
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  setOffMessage("");
+                  const res = await fetch(`${API_URL}/api/barber-off-days`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      barberName: offBarberName,
+                      offDate,
+                    }),
+                  });
+                  const data = await res.json();
+                  setOffMessage(data.message);
+                  loadData();
+                }}
+                className="space-y-4 mb-6"
               >
-                {barbers.map((b) => (
-                  <option key={b.id} value={b.name}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
-              <input
-                type="date"
-                value={offDate}
-                onChange={(e) => setOffDate(e.target.value)}
-                className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:border-amber-500 font-medium"
-                required
-              />
-              <button
-                type="submit"
-                className="w-full bg-amber-600 text-white py-4 rounded-2xl font-bold hover:bg-amber-700 transition-colors shadow-lg"
+                <select
+                  value={offBarberName}
+                  onChange={(e) => setOffBarberName(e.target.value)}
+                  className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:border-amber-500 font-medium"
+                >
+                  {barbers.map((b) => (
+                    <option key={b.id} value={b.name}>
+                      {b.name}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="date"
+                  value={offDate}
+                  onChange={(e) => setOffDate(e.target.value)}
+                  className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:border-amber-500 font-medium"
+                  required
+                />
+                <button
+                  type="submit"
+                  className="w-full bg-amber-600 text-white py-4 rounded-2xl font-bold hover:bg-amber-700 transition-colors shadow-lg"
+                >
+                  Tətil Gününü Qeyd Et
+                </button>
+              </form>
+            </div>
+
+            {/* 🆕 Mövcud istirahət günlərinin siyahısı */}
+            <div className="border-t pt-4 max-h-48 overflow-y-auto space-y-2">
+              <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
+                Qeyd Olunmuş İstirahət Günləri
+              </h4>
+              {visibleOffDays.length === 0 ? (
+                <p className="text-sm text-gray-400 font-medium">
+                  Hələ ki heç bir istirahət günü qeyd olunmayıb.
+                </p>
+              ) : (
+                visibleOffDays.map((o) => (
+                  <div
+                    key={o.id}
+                    className="flex items-center justify-between bg-gray-50 p-2.5 rounded-xl text-sm"
+                  >
+                    <span className="font-semibold text-gray-800">
+                      {o.barberName}{" "}
+                      <span className="text-gray-400 font-normal">•</span>{" "}
+                      {o.offDate}
+                    </span>
+                    <button
+                      onClick={() =>
+                        setDeleteTarget({
+                          type: "offday",
+                          id: o.id,
+                          name: `${o.barberName} (${o.offDate})`,
+                        })
+                      }
+                      className="text-red-500 hover:text-red-700 p-1.5 bg-red-50 rounded-lg transition"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🆕 Bərbər öz istirahət günlərini görsün (admin olmayan istifadəçi üçün) */}
+      {userRole !== "admin" && visibleOffDays.length > 0 && (
+        <div className="bg-white p-8 rounded-3xl shadow-xl border border-gray-100/80 mb-12">
+          <h3 className="text-xl font-bold mb-6 flex items-center gap-3 text-gray-900">
+            <div className="p-2.5 bg-amber-100 text-amber-600 rounded-2xl">
+              <CalendarOff size={22} />
+            </div>
+            İstirahət Günlərim
+          </h3>
+          <div className="space-y-2">
+            {visibleOffDays.map((o) => (
+              <div
+                key={o.id}
+                className="flex items-center justify-between bg-gray-50 p-3 rounded-xl text-sm"
               >
-                Tətil Gününü Qeyd Et
-              </button>
-            </form>
+                <span className="font-semibold text-gray-800">{o.offDate}</span>
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -719,7 +813,11 @@ const Admin: React.FC = () => {
                 <span className="font-bold text-gray-900">
                   "{deleteTarget.name}"
                 </span>{" "}
-                adlı {deleteTarget.type === "service" ? "xidməti" : "bərbəri"}{" "}
+                {deleteTarget.type === "service"
+                  ? "adlı xidməti"
+                  : deleteTarget.type === "barber"
+                    ? "adlı bərbəri"
+                    : "istirahət gününü"}{" "}
                 silmək istədiyinizə əminsiniz?
               </p>
               <div className="flex gap-3">

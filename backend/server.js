@@ -383,6 +383,14 @@ app.post("/api/barber-off-days", (req, res) => {
   );
 });
 
+// 🆕 İstirahət günü silmə (Admin panelindəki siyahıdan silmək üçün)
+app.delete("/api/barber-off-days/:id", (req, res) => {
+  db.run(`DELETE FROM barber_off_days WHERE id = ?`, [req.params.id], (err) => {
+    if (err) return res.status(500).json({ error: "Xəta baş verdi" });
+    res.json({ message: "İstirahət günü silindi" });
+  });
+});
+
 // ⏳ Ağıllı Avtomatik Status Yeniləmə (Gözləyir -> Tamamlandı)
 app.get("/api/appointments", (req, res) => {
   // Cari zamanı Bakı vaxtı ilə alırıq (Gecikmələrə qarşı lokal saat qurşağı)
@@ -450,10 +458,10 @@ app.post("/api/appointments", (req, res) => {
               let existingAppointmentIdToReplace = null;
 
               for (let appt of allDateAppts) {
-                // ✅ FIX: Yalnız EYNI müştərinin EYNI xidmət üçün olan
-                // köhnə randevusunu əvəz edirik (reschedule məntiqi).
-                // Fərqli xidmətdirsə, bu, YENİ ayrı randevu sayılır və
-                // köhnə randevu silinmir.
+                // ✅ Yalnız EYNI müştərinin EYNI xidmət üçün olan köhnə
+                // randevusunu əvəz edirik (reschedule məntiqi). Fərqli
+                // xidmətdirsə, bu, YENİ ayrı randevu sayılır və köhnə
+                // randevu silinmir.
                 if (appt.customer === customer && appt.service === service) {
                   existingAppointmentIdToReplace = appt.id;
                   continue;
@@ -531,6 +539,102 @@ app.post("/api/appointments", (req, res) => {
       );
     },
   );
+});
+
+// 🆕 Randevu saatını/tarixini dəyişmə (yalnız randevuya 1 saatdan çox
+// vaxt qalıbsa icazə verilir; 1 saat və ya daha az qalıbsa rədd edilir)
+app.put("/api/appointments/:id/reschedule", (req, res) => {
+  const { id } = req.params;
+  const { newDate, newTime } = req.body;
+
+  db.get(`SELECT * FROM appointments WHERE id = ?`, [id], (err, appt) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!appt) return res.status(404).json({ error: "Randevu tapılmadı!" });
+
+    // Cari randevunun (dəyişdirilmədən əvvəlki) saatına neçə dəqiqə qalıb
+    const apptDateTime = new Date(`${appt.date}T${appt.time}:00`);
+    const now = new Date();
+    const diffMinutes = (apptDateTime.getTime() - now.getTime()) / 60000;
+
+    if (diffMinutes < 60) {
+      return res.status(400).json({
+        error:
+          "Randevuya 1 saatdan az qalıb, artıq saatı dəyişmək mümkün deyil!",
+      });
+    }
+
+    db.get(
+      `SELECT * FROM barber_off_days WHERE barberName = ? AND offDate = ?`,
+      [appt.barberName, newDate],
+      (err, offRow) => {
+        if (offRow) {
+          return res.status(400).json({
+            error: `${appt.barberName} seçilmiş tarixdə istirahətdədir (işləmir)!`,
+          });
+        }
+
+        db.get(
+          `SELECT duration FROM services WHERE name = ?`,
+          [appt.service],
+          (err, serviceRow) => {
+            const durationStr = serviceRow ? serviceRow.duration : "30 dəq";
+            const serviceMinutes = parseDurationToMinutes(durationStr);
+            const totalBlockMinutes = serviceMinutes + 15;
+
+            const newStartMin = timeToMinutes(newTime);
+            const newEndMin = newStartMin + totalBlockMinutes;
+
+            db.all(
+              `SELECT id, barberName, time, service FROM appointments WHERE date = ? AND status != 'Ləğv edildi' AND id != ?`,
+              [newDate, id],
+              async (err, allDateAppts) => {
+                for (let other of allDateAppts) {
+                  if (other.barberName === appt.barberName) {
+                    const sRow = await new Promise((resolve) => {
+                      db.get(
+                        `SELECT duration FROM services WHERE name = ?`,
+                        [other.service],
+                        (e, r) => resolve(r),
+                      );
+                    });
+                    const existingDuration = parseDurationToMinutes(
+                      sRow ? sRow.duration : "30 dəq",
+                    );
+                    const existingBlockMinutes = existingDuration + 15;
+
+                    const existingStartMin = timeToMinutes(other.time);
+                    const existingEndMin =
+                      existingStartMin + existingBlockMinutes;
+
+                    if (
+                      newStartMin < existingEndMin &&
+                      newEndMin > existingStartMin
+                    ) {
+                      return res.status(400).json({
+                        error: `Seçdiyiniz saat məşğuldur! Fasilə səbəbilə bu aralıq doludur (${minutesToTime(existingStartMin)} - ${minutesToTime(existingEndMin)}).`,
+                      });
+                    }
+                  }
+                }
+
+                db.run(
+                  `UPDATE appointments SET date = ?, time = ?, status = 'Gözləyir' WHERE id = ?`,
+                  [newDate, newTime, id],
+                  function (err) {
+                    if (err)
+                      return res.status(500).json({ error: err.message });
+                    res.json({
+                      message: "Randevunun saatı uğurla yeniləndi!",
+                    });
+                  },
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  });
 });
 
 app.listen(PORT, () => {
