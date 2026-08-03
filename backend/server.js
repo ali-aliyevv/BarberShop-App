@@ -450,7 +450,11 @@ app.post("/api/appointments", (req, res) => {
               let existingAppointmentIdToReplace = null;
 
               for (let appt of allDateAppts) {
-                if (appt.customer === customer) {
+                // ✅ FIX: Yalnız EYNI müştərinin EYNI xidmət üçün olan
+                // köhnə randevusunu əvəz edirik (reschedule məntiqi).
+                // Fərqli xidmətdirsə, bu, YENİ ayrı randevu sayılır və
+                // köhnə randevu silinmir.
+                if (appt.customer === customer && appt.service === service) {
                   existingAppointmentIdToReplace = appt.id;
                   continue;
                 }
@@ -531,4 +535,4 @@ app.post("/api/appointments", (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Backend serveri http://localhost:${PORT} ünvanında işləyir.`);
-}); 
+});
