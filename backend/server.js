@@ -531,4 +531,4 @@ app.post("/api/appointments", (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Backend serveri http://localhost:${PORT} ünvanında işləyir.`);
-});
+}); 
