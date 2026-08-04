@@ -253,7 +253,7 @@ app.post("/api/send-otp", async (req, res) => {
         // Maili arxa fonda göndəririk
         transporter
           .sendMail({
-            from: "Deluxe BarberShop <deluxebarbershopoffical@gmail.com>",
+            from: "Deluxe BarberShop <deluxebarberoffical@gmail.com>",
             to: email,
             subject: "Qeydiyyat Təsdiq Kodu (OTP)",
             text: `Deluxe BarberShop üçün təsdiq kodunuz: ${otpCode}`,
