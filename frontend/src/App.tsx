@@ -45,6 +45,7 @@ const AnimatedRoute = ({ children }: { children: React.ReactNode }) => (
     animate={{ opacity: 1, y: 0 }}
     exit={{ opacity: 0, y: -10 }}
     transition={{ duration: 0.25, ease: "easeOut" }}
+    className="h-full flex flex-col"
   >
     {children}
   </motion.div>
@@ -71,8 +72,15 @@ const AnimatedRoutes = () => {
     navigate("/login", { replace: true });
   }, [navigate]);
 
+  // 🚀 AĞILLI YOXLANIŞ: Səhifə "Home" (/)-dirsə tünd rəng, deyilsə açıq rəng ver!
+  const isHomePage = location.pathname === "/";
+
   return (
-    <>
+    <div
+      className={`min-h-screen flex flex-col font-sans overflow-x-hidden transition-colors duration-300 ${
+        isHomePage ? "bg-gray-900" : "bg-gray-50"
+      }`}
+    >
       <nav className="bg-gray-900 text-white shadow-lg sticky top-0 z-50">
         <div className="max-w-7xl mx-auto p-4 flex justify-between items-center">
           <h1 className="text-2xl font-extrabold text-amber-500">
@@ -209,82 +217,80 @@ const AnimatedRoutes = () => {
         </AnimatePresence>
       </nav>
 
-      <AnimatePresence mode="wait">
-        <Routes location={location} key={location.pathname}>
-          <Route
-            path="/"
-            element={
-              <AnimatedRoute>
-                <Home />
-              </AnimatedRoute>
-            }
-          />
-          <Route
-            path="/services"
-            element={
-              <AnimatedRoute>
-                <Services />
-              </AnimatedRoute>
-            }
-          />
-          <Route
-            path="/barbers"
-            element={
-              <AnimatedRoute>
-                <Barbers />
-              </AnimatedRoute>
-            }
-          />
-          <Route
-            path="/dashboard"
-            element={
-              <ClientRoute>
+      <div className="grow flex flex-col">
+        <AnimatePresence mode="wait">
+          <Routes location={location} key={location.pathname}>
+            <Route
+              path="/"
+              element={
                 <AnimatedRoute>
-                  <Dashboard />
+                  <Home />
                 </AnimatedRoute>
-              </ClientRoute>
-            }
-          />
-          <Route
-            path="/login"
-            element={
-              <AnimatedRoute>
-                <Login />
-              </AnimatedRoute>
-            }
-          />
-          <Route
-            path="/signup"
-            element={
-              <AnimatedRoute>
-                <Signup />
-              </AnimatedRoute>
-            }
-          />
-          <Route
-            path="/admin"
-            element={
-              <AdminRoute>
+              }
+            />
+            <Route
+              path="/services"
+              element={
                 <AnimatedRoute>
-                  <Admin />
+                  <Services />
                 </AnimatedRoute>
-              </AdminRoute>
-            }
-          />
-        </Routes>
-      </AnimatePresence>
-    </>
+              }
+            />
+            <Route
+              path="/barbers"
+              element={
+                <AnimatedRoute>
+                  <Barbers />
+                </AnimatedRoute>
+              }
+            />
+            <Route
+              path="/dashboard"
+              element={
+                <ClientRoute>
+                  <AnimatedRoute>
+                    <Dashboard />
+                  </AnimatedRoute>
+                </ClientRoute>
+              }
+            />
+            <Route
+              path="/login"
+              element={
+                <AnimatedRoute>
+                  <Login />
+                </AnimatedRoute>
+              }
+            />
+            <Route
+              path="/signup"
+              element={
+                <AnimatedRoute>
+                  <Signup />
+                </AnimatedRoute>
+              }
+            />
+            <Route
+              path="/admin"
+              element={
+                <AdminRoute>
+                  <AnimatedRoute>
+                    <Admin />
+                  </AnimatedRoute>
+                </AdminRoute>
+              }
+            />
+          </Routes>
+        </AnimatePresence>
+      </div>
+    </div>
   );
 };
 
 const App: React.FC = () => {
   return (
     <Router>
-      <div className="min-h-screen bg-gray-50 flex flex-col font-sans overflow-x-hidden">
-        <div className="grow">
-          <AnimatedRoutes />
-        </div>
-      </div>
+      <AnimatedRoutes />
     </Router>
   );
 };
