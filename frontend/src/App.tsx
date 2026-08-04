@@ -1,4 +1,4 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useState } from "react";
 import {
   BrowserRouter as Router,
   Routes,
@@ -9,6 +9,7 @@ import {
   useNavigate,
 } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
+import { Menu, X } from "lucide-react";
 
 import Home from "./components/Home";
 import Services from "./components/Services";
@@ -55,22 +56,33 @@ const AnimatedRoutes = () => {
   const isLoggedIn = localStorage.getItem("isLoggedIn") === "true";
   const userRole = localStorage.getItem("userRole");
 
+  // Mobil menyunun vəziyyətini idarə edən state
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Linkə kliklədikdə mobil menyunu bağlamaq üçün funksiya
+  const closeMenu = () => setIsMobileMenuOpen(false);
+
   const handleLogout = useCallback(() => {
     localStorage.removeItem("isLoggedIn");
     localStorage.removeItem("userRole");
     localStorage.removeItem("userName");
     localStorage.removeItem("userPhone");
+    closeMenu();
     navigate("/login", { replace: true });
   }, [navigate]);
 
   return (
     <>
-      <nav className="bg-gray-900 text-white p-4 shadow-lg sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
+      <nav className="bg-gray-900 text-white shadow-lg sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto p-4 flex justify-between items-center">
           <h1 className="text-2xl font-extrabold text-amber-500">
-            <Link to="/">✂️ Deluxe BarberShop</Link>
+            <Link to="/" onClick={closeMenu}>
+              ✂️ Deluxe BarberShop
+            </Link>
           </h1>
-          <div className="space-x-6 font-semibold flex items-center">
+
+          {/* Desktop Naviqasiya (Böyük ekranlar üçün) */}
+          <div className="hidden md:flex space-x-6 font-semibold items-center">
             {userRole !== "barber" && (
               <>
                 <Link
@@ -113,7 +125,88 @@ const AnimatedRoutes = () => {
               </Link>
             )}
           </div>
+
+          {/* Mobil Menyu Düyməsi */}
+          <button
+            className="md:hidden text-amber-500 hover:text-amber-400 focus:outline-none"
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          >
+            {isMobileMenuOpen ? <X size={28} /> : <Menu size={28} />}
+          </button>
         </div>
+
+        {/* Mobil Menyu Açılan Panel (Kiçik ekranlar üçün) */}
+        <AnimatePresence>
+          {isMobileMenuOpen && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="md:hidden bg-gray-800 border-t border-gray-700 overflow-hidden"
+            >
+              <div className="flex flex-col px-6 py-4 space-y-4 font-semibold text-center">
+                {userRole !== "barber" && (
+                  <>
+                    <Link
+                      to="/services"
+                      onClick={closeMenu}
+                      className="block hover:text-amber-400 transition"
+                    >
+                      Xidmətlər
+                    </Link>
+                    <Link
+                      to="/barbers"
+                      onClick={closeMenu}
+                      className="block hover:text-amber-400 transition"
+                    >
+                      Bərbərlər
+                    </Link>
+                  </>
+                )}
+
+                {isLoggedIn && userRole === "client" && (
+                  <Link
+                    to="/dashboard"
+                    onClick={closeMenu}
+                    className="block hover:text-amber-400 transition"
+                  >
+                    Kabinet
+                  </Link>
+                )}
+
+                {isLoggedIn &&
+                  (userRole === "admin" || userRole === "barber") && (
+                    <Link
+                      to="/admin"
+                      onClick={closeMenu}
+                      className="block text-amber-400 hover:underline"
+                    >
+                      İdarəetmə Paneli
+                    </Link>
+                  )}
+
+                <div className="pt-2 border-t border-gray-700">
+                  {isLoggedIn ? (
+                    <button
+                      onClick={handleLogout}
+                      className="w-full bg-red-600 px-4 py-2.5 rounded-lg text-sm hover:bg-red-700 transition"
+                    >
+                      Çıxış
+                    </button>
+                  ) : (
+                    <Link
+                      to="/login"
+                      onClick={closeMenu}
+                      className="block w-full bg-amber-500 text-gray-900 px-4 py-2.5 rounded-lg text-sm font-bold hover:bg-amber-400 transition"
+                    >
+                      Giriş
+                    </Link>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </nav>
 
       <AnimatePresence mode="wait">
