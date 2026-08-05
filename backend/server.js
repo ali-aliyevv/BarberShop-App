@@ -39,15 +39,26 @@ const db = new sqlite3.Database("./barber.db", (err) => {
   else console.log("SQLite məlumat bazasına uğurla qoşuldu.");
 });
 
+// ✅ DÜZƏLDİLDİ: port 465 üçün secure MÜTLƏQ true olmalıdır.
+// (secure:false + port:465 kombinasiyası mailin göndərilməməsinə səbəb olurdu)
 const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
   port: 465,
-  secure: false,
+  secure: true, // 465 = SSL, secure MÜTLƏQ true olmalıdır
   auth: {
     user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_PASS,
+    pass: process.env.GMAIL_PASS, // Gmail "App Password" olmalıdır, adi şifrə YOX
   },
-  tls: { rejectUnauthorized: false },
+});
+
+// Server açılanda SMTP bağlantısını yoxlayır — konfiqurasiya səhvini
+// dərhal loglarda görmək üçün çox faydalıdır.
+transporter.verify((err, success) => {
+  if (err) {
+    console.error("❌ SMTP qoşulma xətası:", err.message);
+  } else {
+    console.log("✅ SMTP serverinə uğurla qoşuldu, mail göndərməyə hazırdır.");
+  }
 });
 
 db.serialize(() => {
@@ -231,8 +242,17 @@ app.post("/api/create-payment-intent", async (req, res) => {
 });
 
 // 🚀 Optimizasiya olunmuş OTP Göndərmə (502 Timeout xətasını aradan qaldırır)
+// ✅ DÜZƏLDİLDİ: mail göndərilərkən baş verən xəta indi konsolda daha
+// aydın görünür, əlavə olaraq debug üçün "mailSent" sahəsi əlavə olunmayıb
+// çünki cavab artıq göndərilib (502 qarşısını almaq üçün) — amma konsolu
+// izləməklə problemi tez tapa bilərsiniz.
 app.post("/api/send-otp", async (req, res) => {
   const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).json({ error: "E-poçt daxil edilməyib!" });
+  }
+
   const otpCode = Math.floor(1000 + Math.random() * 9000).toString();
 
   db.run(`DELETE FROM otps WHERE email = ?`, [email], (err) => {
@@ -258,7 +278,12 @@ app.post("/api/send-otp", async (req, res) => {
             subject: "Qeydiyyat Təsdiq Kodu (OTP)",
             text: `Deluxe BarberShop üçün təsdiq kodunuz: ${otpCode}`,
           })
-          .catch((mailErr) => console.error("Mail xətası:", mailErr));
+          .then(() => {
+            console.log(`✅ OTP maili göndərildi: ${email}`);
+          })
+          .catch((mailErr) => {
+            console.error("❌ Mail xətası:", mailErr.message);
+          });
       },
     );
   });
