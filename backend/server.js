@@ -385,7 +385,7 @@ app.delete("/api/barber-off-days/:id", (req, res) => {
 
 app.get("/api/appointments", (req, res) => {
   const now = new Date();
-  now.setHours(now.getHours() - 1);
+  // now.setHours(now.getHours() - 1);
 
   const currentDate = now.toISOString().split("T")[0];
   const currentHours = String(now.getHours()).padStart(2, "0");
