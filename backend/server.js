@@ -49,8 +49,9 @@ const transporter = nodemailer.createTransport({
     pass: process.env.GMAIL_PASS,
   },
   tls: {
-    rejectUnauthorized: false, // IPv6 və lokal sertifikat xətalarını bloklamaması üçün
+    rejectUnauthorized: false, 
   },
+    family:4
 });
 
 // Server açılanda SMTP bağlantısını yoxlayır
