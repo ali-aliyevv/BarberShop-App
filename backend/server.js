@@ -39,20 +39,21 @@ const db = new sqlite3.Database("./barber.db", (err) => {
   else console.log("SQLite məlumat bazasına uğurla qoşuldu.");
 });
 
-// ✅ DÜZƏLDİLDİ: port 465 üçün secure MÜTLƏQ true olmalıdır.
-// (secure:false + port:465 kombinasiyası mailin göndərilməməsinə səbəb olurdu)
+// ✅ YENİLƏNDİ: 587 portu və tls ayarı əlavə edildi
 const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
-  port: 465,
-  secure: true, // 465 = SSL, secure MÜTLƏQ true olmalıdır
+  port: 587,
+  secure: false, // 587 portu üçün MÜTLƏQ false olmalıdır
   auth: {
     user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_PASS, // Gmail "App Password" olmalıdır, adi şifrə YOX
+    pass: process.env.GMAIL_PASS,
+  },
+  tls: {
+    rejectUnauthorized: false, // IPv6 və lokal sertifikat xətalarını bloklamaması üçün
   },
 });
 
-// Server açılanda SMTP bağlantısını yoxlayır — konfiqurasiya səhvini
-// dərhal loglarda görmək üçün çox faydalıdır.
+// Server açılanda SMTP bağlantısını yoxlayır
 transporter.verify((err, success) => {
   if (err) {
     console.error("❌ SMTP qoşulma xətası:", err.message);
@@ -241,11 +242,7 @@ app.post("/api/create-payment-intent", async (req, res) => {
   }
 });
 
-// 🚀 Optimizasiya olunmuş OTP Göndərmə (502 Timeout xətasını aradan qaldırır)
-// ✅ DÜZƏLDİLDİ: mail göndərilərkən baş verən xəta indi konsolda daha
-// aydın görünür, əlavə olaraq debug üçün "mailSent" sahəsi əlavə olunmayıb
-// çünki cavab artıq göndərilib (502 qarşısını almaq üçün) — amma konsolu
-// izləməklə problemi tez tapa bilərsiniz.
+// ✅ YENİLƏNDİ: Mailin getdiyinə əmin olmadan brauzerə cavab qaytarmır
 app.post("/api/send-otp", async (req, res) => {
   const { email } = req.body;
 
@@ -261,29 +258,32 @@ app.post("/api/send-otp", async (req, res) => {
     db.run(
       `INSERT INTO otps (email, code) VALUES (?, ?)`,
       [email, otpCode],
-      (err) => {
+      async (err) => {
         if (err) return res.status(500).json({ error: "Xəta baş verdi" });
 
-        // İstifadəçiyə dərhal cavab qaytarırıq (502 qarşısı alınır)
-        res.json({
-          message: "OTP kod e-poçtunuza uğurla göndərildi!",
-          debugCode: otpCode,
-        });
-
-        // Maili arxa fonda göndəririk
-        transporter
-          .sendMail({
+        try {
+          // Gözləyirik ki, mail doğrudan da göndərilsin
+          await transporter.sendMail({
             from: "Deluxe BarberShop <deluxebarberoffical@gmail.com>",
             to: email,
             subject: "Qeydiyyat Təsdiq Kodu (OTP)",
             text: `Deluxe BarberShop üçün təsdiq kodunuz: ${otpCode}`,
-          })
-          .then(() => {
-            console.log(`✅ OTP maili göndərildi: ${email}`);
-          })
-          .catch((mailErr) => {
-            console.error("❌ Mail xətası:", mailErr.message);
           });
+
+          console.log(`✅ OTP maili göndərildi: ${email}`);
+
+          // Yalnız mail uğurla getdikdən sonra brauzerə cavab qaytarırıq
+          res.json({
+            message: "OTP kod e-poçtunuza uğurla göndərildi!",
+          });
+        } catch (mailErr) {
+          console.error("❌ Mail xətası:", mailErr.message);
+          res
+            .status(500)
+            .json({
+              error: "Mail göndərilə bilmədi, zəhmət olmasa yenidən cəhd edin.",
+            });
+        }
       },
     );
   });
@@ -408,7 +408,6 @@ app.post("/api/barber-off-days", (req, res) => {
   );
 });
 
-// 🆕 İstirahət günü silmə (Admin panelindəki siyahıdan silmək üçün)
 app.delete("/api/barber-off-days/:id", (req, res) => {
   db.run(`DELETE FROM barber_off_days WHERE id = ?`, [req.params.id], (err) => {
     if (err) return res.status(500).json({ error: "Xəta baş verdi" });
@@ -416,13 +415,8 @@ app.delete("/api/barber-off-days/:id", (req, res) => {
   });
 });
 
-// ⏳ Ağıllı Avtomatik Status Yeniləmə (Gözləyir -> Tamamlandı)
 app.get("/api/appointments", (req, res) => {
-  // Cari zamanı Bakı vaxtı ilə alırıq (Gecikmələrə qarşı lokal saat qurşağı)
   const now = new Date();
-
-  // Nümunə üçün 1 saat öncəki zamanı götürürük ki, tam dəqiq bitdiyinə əmin olaq
-  // (Yəni saat 14:00-da randevu alınıbsa, 15:00 olanda "Tamamlandı" edirik)
   now.setHours(now.getHours() - 1);
 
   const currentDate = now.toISOString().split("T")[0];
@@ -430,7 +424,6 @@ app.get("/api/appointments", (req, res) => {
   const currentMinutes = String(now.getMinutes()).padStart(2, "0");
   const currentTime = `${currentHours}:${currentMinutes}`;
 
-  // Keçmişdəki "Gözləyir" statuslu randevuları "Tamamlandı" olaraq dəyişdiririk
   const updateQuery = `
     UPDATE appointments 
     SET status = 'Tamamlandı' 
@@ -442,7 +435,6 @@ app.get("/api/appointments", (req, res) => {
   db.run(updateQuery, [currentDate, currentDate, currentTime], (err) => {
     if (err) console.error("Avtomatik status yeniləmə xətası:", err);
 
-    // Bütün cədvəli geriyə qaytarırıq (artıq yenilənmiş halda)
     db.all(`SELECT * FROM appointments`, [], (err, rows) => {
       if (err) return res.status(500).json({ error: err.message });
       res.json(rows);
@@ -483,10 +475,6 @@ app.post("/api/appointments", (req, res) => {
               let existingAppointmentIdToReplace = null;
 
               for (let appt of allDateAppts) {
-                // ✅ Yalnız EYNI müştərinin EYNI xidmət üçün olan köhnə
-                // randevusunu əvəz edirik (reschedule məntiqi). Fərqli
-                // xidmətdirsə, bu, YENİ ayrı randevu sayılır və köhnə
-                // randevu silinmir.
                 if (appt.customer === customer && appt.service === service) {
                   existingAppointmentIdToReplace = appt.id;
                   continue;
@@ -566,8 +554,6 @@ app.post("/api/appointments", (req, res) => {
   );
 });
 
-// 🆕 Randevu saatını/tarixini dəyişmə (yalnız randevuya 1 saatdan çox
-// vaxt qalıbsa icazə verilir; 1 saat və ya daha az qalıbsa rədd edilir)
 app.put("/api/appointments/:id/reschedule", (req, res) => {
   const { id } = req.params;
   const { newDate, newTime } = req.body;
@@ -576,7 +562,6 @@ app.put("/api/appointments/:id/reschedule", (req, res) => {
     if (err) return res.status(500).json({ error: err.message });
     if (!appt) return res.status(404).json({ error: "Randevu tapılmadı!" });
 
-    // Cari randevunun (dəyişdirilmədən əvvəlki) saatına neçə dəqiqə qalıb
     const apptDateTime = new Date(`${appt.date}T${appt.time}:00`);
     const now = new Date();
     const diffMinutes = (apptDateTime.getTime() - now.getTime()) / 60000;
