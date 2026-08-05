@@ -2,7 +2,7 @@ require("dotenv").config();
 const express = require("express");
 const sqlite3 = require("sqlite3").verbose();
 const cors = require("cors");
-const nodemailer = require("nodemailer");
+const axios = require("axios"); // YENİ: Nodemailer əvəzinə Axios istifadə edirik
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
@@ -39,29 +39,47 @@ const db = new sqlite3.Database("./barber.db", (err) => {
   else console.log("SQLite məlumat bazasına uğurla qoşuldu.");
 });
 
-// ✅ YENİLƏNDİ: 587 portu və tls ayarı əlavə edildi
-const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 587,
-  secure: false, // 587 portu üçün MÜTLƏQ false olmalıdır
-  auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_PASS,
-  },
-  tls: {
-    rejectUnauthorized: false, 
-  },
-    family:4
-});
-
-// Server açılanda SMTP bağlantısını yoxlayır
-transporter.verify((err, success) => {
-  if (err) {
-    console.error("❌ SMTP qoşulma xətası:", err.message);
-  } else {
-    console.log("✅ SMTP serverinə uğurla qoşuldu, mail göndərməyə hazırdır.");
+// ✅ YENİ: Brevo API vasitəsilə OTP göndərmə funksiyası
+const sendOTP = async (userEmail, otpCode) => {
+  try {
+    const response = await axios.post(
+      "https://api.brevo.com/v3/smtp/email",
+      {
+        sender: {
+          name: "Deluxe Barbershop",
+          email: "deluxebarberoffical@gmail.com", // Brevo-da təsdiqlənmiş email
+        },
+        to: [
+          {
+            email: userEmail,
+          },
+        ],
+        subject: "Deluxe Barbershop - Qeydiyyat Təsdiq Kodu",
+        htmlContent: `<html>
+                        <body>
+                          <h2>Sizin OTP kodunuz: <strong>${otpCode}</strong></h2>
+                          <p>Bu kodu heç kimlə paylaşmayın.</p>
+                        </body>
+                      </html>`,
+      },
+      {
+        headers: {
+          accept: "application/json",
+          "api-key": process.env.BREVO_API_KEY,
+          "content-type": "application/json",
+        },
+      },
+    );
+    console.log(`✅ OTP maili uğurla göndərildi: ${userEmail}`);
+    return true;
+  } catch (error) {
+    console.error(
+      "❌ Mail göndərilərkən xəta:",
+      error.response ? error.response.data : error.message,
+    );
+    return false;
   }
-});
+};
 
 db.serialize(() => {
   db.run(`CREATE TABLE IF NOT EXISTS users (
@@ -243,7 +261,7 @@ app.post("/api/create-payment-intent", async (req, res) => {
   }
 });
 
-// ✅ YENİLƏNDİ: Mailin getdiyinə əmin olmadan brauzerə cavab qaytarmır
+// ✅ YENİLƏNDİ: Brevo API (Axios) vasitəsilə OTP göndəririk
 app.post("/api/send-otp", async (req, res) => {
   const { email } = req.body;
 
@@ -262,29 +280,19 @@ app.post("/api/send-otp", async (req, res) => {
       async (err) => {
         if (err) return res.status(500).json({ error: "Xəta baş verdi" });
 
-        try {
-          // Gözləyirik ki, mail doğrudan da göndərilsin
-          await transporter.sendMail({
-            from: "Deluxe BarberShop <deluxebarberoffical@gmail.com>",
-            to: email,
-            subject: "Qeydiyyat Təsdiq Kodu (OTP)",
-            text: `Deluxe BarberShop üçün təsdiq kodunuz: ${otpCode}`,
-          });
+        // Mailin getdiyini yoxlayırıq
+        const isMailSent = await sendOTP(email, otpCode);
 
-          console.log(`✅ OTP maili göndərildi: ${email}`);
-
-          // Yalnız mail uğurla getdikdən sonra brauzerə cavab qaytarırıq
-          res.json({
-            message: "OTP kod e-poçtunuza uğurla göndərildi!",
+        if (!isMailSent) {
+          return res.status(500).json({
+            error: "Mail göndərilə bilmədi, zəhmət olmasa yenidən cəhd edin.",
           });
-        } catch (mailErr) {
-          console.error("❌ Mail xətası:", mailErr.message);
-          res
-            .status(500)
-            .json({
-              error: "Mail göndərilə bilmədi, zəhmət olmasa yenidən cəhd edin.",
-            });
         }
+
+        // Yalnız mail uğurla getdikdən sonra brauzerə cavab qaytarırıq
+        res.json({
+          message: "OTP kod e-poçtunuza uğurla göndərildi!",
+        });
       },
     );
   });
