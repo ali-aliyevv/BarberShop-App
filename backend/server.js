@@ -2,10 +2,12 @@ require("dotenv").config();
 const express = require("express");
 const sqlite3 = require("sqlite3").verbose();
 const cors = require("cors");
-const axios = require("axios"); // YENİ: Nodemailer əvəzinə Axios istifadə edirik
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
+
+// Ayrı faylda yazdığımız mail modulunu çağırırıq
+const { sendOTP } = require("./mailer");
 
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
@@ -38,48 +40,6 @@ const db = new sqlite3.Database("./barber.db", (err) => {
   if (err) console.error("Bazaya qoşularkən xəta:", err.message);
   else console.log("SQLite məlumat bazasına uğurla qoşuldu.");
 });
-
-// ✅ YENİ: Brevo API vasitəsilə OTP göndərmə funksiyası
-const sendOTP = async (userEmail, otpCode) => {
-  try {
-    const response = await axios.post(
-      "https://api.brevo.com/v3/smtp/email",
-      {
-        sender: {
-          name: "Deluxe Barbershop",
-          email: "deluxebarberoffical@gmail.com", // Brevo-da təsdiqlənmiş email
-        },
-        to: [
-          {
-            email: userEmail,
-          },
-        ],
-        subject: "Deluxe Barbershop - Qeydiyyat Təsdiq Kodu",
-        htmlContent: `<html>
-                        <body>
-                          <h2>Sizin OTP kodunuz: <strong>${otpCode}</strong></h2>
-                          <p>Bu kodu heç kimlə paylaşmayın.</p>
-                        </body>
-                      </html>`,
-      },
-      {
-        headers: {
-          accept: "application/json",
-          "api-key": process.env.BREVO_API_KEY,
-          "content-type": "application/json",
-        },
-      },
-    );
-    console.log(`✅ OTP maili uğurla göndərildi: ${userEmail}`);
-    return true;
-  } catch (error) {
-    console.error(
-      "❌ Mail göndərilərkən xəta:",
-      error.response ? error.response.data : error.message,
-    );
-    return false;
-  }
-};
 
 db.serialize(() => {
   db.run(`CREATE TABLE IF NOT EXISTS users (
@@ -261,7 +221,7 @@ app.post("/api/create-payment-intent", async (req, res) => {
   }
 });
 
-// ✅ YENİLƏNDİ: Brevo API (Axios) vasitəsilə OTP göndəririk
+// OTP Göndərmə endpointi (mailer.js-dən istifadə edir)
 app.post("/api/send-otp", async (req, res) => {
   const { email } = req.body;
 
@@ -280,7 +240,7 @@ app.post("/api/send-otp", async (req, res) => {
       async (err) => {
         if (err) return res.status(500).json({ error: "Xəta baş verdi" });
 
-        // Mailin getdiyini yoxlayırıq
+        // Ayrı fayldan gələn funksiyanı çağırırıq
         const isMailSent = await sendOTP(email, otpCode);
 
         if (!isMailSent) {
@@ -289,7 +249,6 @@ app.post("/api/send-otp", async (req, res) => {
           });
         }
 
-        // Yalnız mail uğurla getdikdən sonra brauzerə cavab qaytarırıq
         res.json({
           message: "OTP kod e-poçtunuza uğurla göndərildi!",
         });
